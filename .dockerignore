@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+logs/
+reports/
+*.log
+.git/
+.dockerignore
+templates/

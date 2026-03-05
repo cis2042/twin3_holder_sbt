@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twin Matrix SBT — Growth Dashboard</title>
+    <meta name="description"
+        content="On-chain growth analytics dashboard for the Twin Matrix Soulbound Token on BSC. Real-time data updated every 4 hours.">
+    <link rel="icon" href="/static/twin3-logo.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <div class="progress-bar" id="progressBar"></div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- ═══════════ HERO ═══════════ -->
+    <section class="hero" id="hero">
+        <img src="/static/twin3-logo.svg" alt="twin3" class="hero-logo" id="heroLogo">
+        <div class="hero-label">TWIN MATRIX SOULBOUND TOKEN</div>
+        <h1 class="hero-title" id="heroTitle">Growth Dashboard</h1>
+        <p class="hero-subtitle">
+            <strong>Twin Matrix Soulbound Token (SBT)</strong> is a BEP-721 NFT on the BNB Smart Chain.
+            Each token is permanently bound to its owner's wallet and cannot be transferred — serving as
+            a verifiable proof of membership in the Twin3 ecosystem.
+        </p>
+        <p class="hero-subtitle-sm">
+            This dashboard tracks on-chain minting activity from contract deployment to present.
+            All data is fetched directly from the BSC blockchain via Dune Analytics — no simulated data.
+            <span class="update-badge" id="updateBadge">Data refreshed every 4 hours</span>
+        </p>
+        <div class="hero-contract" id="heroContract">
+            <span class="mono">Contract: 0xe3ec...5156f</span>
+            <span class="contract-sep">·</span>
+            <span class="mono">Minter: 0x3446...7777</span>
+        </div>
+        <div class="hero-stats" id="heroStats">
+            <div class="hero-stat">
+                <div class="hero-stat-value" id="heroHolders">—</div>
+                <div class="hero-stat-label">Total Holders</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value" id="heroToday">—</div>
+                <div class="hero-stat-label">New Today</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value" id="heroDays">—</div>
+                <div class="hero-stat-label">Days Active</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value" id="heroAvg7d">—</div>
+                <div class="hero-stat-label">Avg/Day (7d)</div>
+            </div>
+        </div>
+        <div class="hero-last-update" id="heroLastUpdate"></div>
+        <div class="scroll-indicator"><span>Scroll to explore</span>
+            <div class="arrow"></div>
+        </div>
+    </section>
+
+    <!-- ═══════════ SCENE 1: GROWTH TIMELINE ═══════════ -->
+    <section class="scene" id="scene-timeline">
+        <div class="scene-inner">
+            <div class="scene-label">Growth Timeline</div>
+            <h2 class="scene-title">Daily New User Acquisition</h2>
+            <p class="scene-narrative" id="timelineNarrative">Loading growth data...</p>
+
+            <div class="explanation-block" id="timelineExplain">
+                <p>Each bar represents the number of <strong>unique wallets</strong> that received a Twin Matrix SBT
+                    on a given day. The minting contract sends one token per wallet — so each new holder
+                    corresponds to exactly one mint transaction initiated by the official minter address.</p>
+                <p>Use the <strong>moving average</strong> toggle to smooth out daily volatility. The brush area below
+                    the chart lets you zoom into a specific date range by dragging the selection handles.</p>
+            </div>
+
+            <div class="metrics-row" id="timelineMetrics"></div>
+
+            <div class="card" id="timelineCard">
+                <h3>Daily New Users — Full History</h3>
+                <div class="controls-row">
+                    <label>Moving Avg:</label>
+                    <div class="btn-group" id="maGroup">
+                        <button class="btn" data-ma="0">None</button>
+                        <button class="btn active" data-ma="7">7d</button>
+                        <button class="btn" data-ma="14">14d</button>
+                        <button class="btn" data-ma="30">30d</button>
+                    </div>
+                </div>
+                <div class="chart-area" id="timelineChart" style="height:320px;"></div>
+                <div class="range-slider-container">
+                    <div class="chart-area range-brush-area" id="brushChart" style="height:48px;"></div>
+                </div>
+                <div class="chart-caption">
+                    Each bar = COUNT(DISTINCT to_address) where from = 0x0 (minting). MA = rolling window average.
+                </div>
+            </div>
+
+            <div class="card" id="cumulativeCard">
+                <h3>Cumulative Holder Growth</h3>
+                <div class="chart-area" id="cumulativeChart" style="height:280px;"></div>
+                <div class="chart-caption">
+                    Running total of unique holders. Milestone markers at 10K, 25K, 50K, and 75K.
+                    Formula: <code>cumulative[n] = Σ(new_users[0..n])</code>
+                </div>
+            </div>
+
+            <div class="formula-card" id="timelineFormulaCard">
+                <div class="formula-card-header">
+                    <span class="formula-icon">📐</span>
+                    <div>
+                        <div class="formula-card-title">Calculation Method</div>
+                        <div class="formula-card-subtitle">How daily new users are counted</div>
+                    </div>
+                </div>
+                <div class="formula-card-body">
+                    <div class="formula-step">
+                        <div class="step-num">1</div>
+                        <div>
+                            <strong>Identify mint transactions</strong> — Filter <code>nft.transfers</code> on BSC
+                            where <code>from = 0x000...0000</code> (null address, indicating a mint) and the
+                            initiating transaction sender matches the official minter wallet.
+                        </div>
+                    </div>
+                    <div class="formula-step">
+                        <div class="step-num">2</div>
+                        <div>
+                            <strong>Group by day</strong> — Truncate <code>block_time</code> to date and count
+                            distinct
+                            <code>to</code> addresses per day. This prevents double-counting if a wallet received
+                            multiple tokens in one day (which does not happen for SBTs, but is a safety measure).
+                        </div>
+                    </div>
+                    <div class="formula-step">
+                        <div class="step-num">3</div>
+                        <div>
+                            <strong>Compute cumulative</strong> — Sum all daily counts up to each date to produce the
+                            running total of holders.
+                        </div>
+                    </div>
+                </div>
+                <details class="formula-sql">
+                    <summary>View SQL Query</summary>
+                    <div class="formula-content" id="timelineSQL">
+                        <div class="loading">Loading SQL</div>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ SCENE 2: WALLET ANALYSIS ═══════════ -->
+    <section class="scene" id="scene-wallet">
+        <div class="scene-inner">
+            <div class="scene-label">User Quality Analysis</div>
+            <h2 class="scene-title">Who Are Our New Users?</h2>
+            <p class="scene-narrative" id="walletNarrative">Loading wallet analysis...</p>
+
+            <div class="explanation-block" id="walletExplain">
+                <p>For each new holder, we look back <strong>up to 1 year</strong> at their transaction history on BNB
+                    Smart Chain.
+                    This reveals whether they are <em>brand-new wallets</em> (never transacted before) or <em>seasoned
+                        users</em> with existing on-chain activity.</p>
+                <p>The <strong>donut chart</strong> shows wallet age distribution — how long ago each wallet first
+                    appeared on-chain.
+                    The <strong>bar chart</strong> shows how many prior transactions each wallet had before minting the
+                    SBT.</p>
+            </div>
+
+            <div style="display:flex;gap:1.2rem;flex-wrap:wrap;">
+                <div class="card" style="flex:1;min-width:300px;" id="ageDonutCard">
+                    <h3>Wallet Age Distribution</h3>
+                    <div class="chart-area" id="ageDonut" style="height:300px;"></div>
+                    <div class="chart-caption">
+                        Age = days since first on-chain transaction (up to 1 year lookback).
+                        "No history" = no prior transactions found within the lookback window.
+                    </div>
+                </div>
+                <div class="card" style="flex:1;min-width:300px;" id="txBarCard">
+                    <h3>Prior Transaction Activity</h3>
+                    <div class="chart-area" id="txBar" style="height:300px;"></div>
+                    <div class="chart-caption">
+                        Count of outgoing transactions in the 365 days before minting.
+                        Higher counts = more active/experienced users.
+                    </div>
+                </div>
+            </div>
+
+            <div class="formula-card" id="walletFormulaCard">
+                <div class="formula-card-header">
+                    <span class="formula-icon">📐</span>
+                    <div>
+                        <div class="formula-card-title">Wallet Age Analysis Method</div>
+                        <div class="formula-card-subtitle">How we classify user experience level</div>
+                    </div>
+                </div>
+                <div class="formula-card-body">
+                    <div class="formula-step">
+                        <div class="step-num">1</div>
+                        <div>
+                            <strong>Identify today's new users</strong> — All wallets receiving their first SBT today.
+                        </div>
+                    </div>
+                    <div class="formula-step">
+                        <div class="step-num">2</div>
+                        <div>
+                            <strong>Count prior transactions</strong> — For each new user, count
+                            <code>bnb.transactions</code> where <code>from = wallet</code> in the 365 days before the
+                            mint.
+                        </div>
+                    </div>
+                    <div class="formula-step">
+                        <div class="step-num">3</div>
+                        <div>
+                            <strong>Find wallet age</strong> — Earliest transaction date within the lookback window.
+                            <code>age_days = mint_date - first_tx_date</code>. If no history found, classified as "No
+                            history (≤1y)".
+                        </div>
+                    </div>
+                    <div class="formula-step">
+                        <div class="step-num">4</div>
+                        <div>
+                            <strong>Bucket classification</strong> — Age buckets: <em>&lt;7d, 7–29d, 30–89d, 90–179d,
+                                180d–1y</em>.
+                            Tx buckets: <em>0, 1–2, 3–9, 10–49, 50–199, 200+</em>.
+                        </div>
+                    </div>
+                </div>
+                <details class="formula-sql">
+                    <summary>View SQL Query</summary>
+                    <div class="formula-content" id="walletSQL">
+                        <div class="loading">Loading SQL</div>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ SCENE 3: CROSS-ANALYSIS HEATMAPS ═══════════ -->
+    <section class="scene" id="scene-heatmap">
+        <div class="scene-inner">
+            <div class="scene-label">Cross-Tab Analysis</div>
+            <h2 class="scene-title">Wallet Maturity × Activity</h2>
+            <p class="scene-narrative">
+                The heatmap below cross-tabulates <strong>wallet age</strong> (rows) against <strong>prior transaction
+                    count</strong> (columns) to reveal the profile of today's new SBT holders.
+                Darker cells indicate higher concentrations of users. Hover any cell for exact numbers.
+            </p>
+
+            <div class="explanation-block">
+                <p>This matrix answers: <em>"Are new holders experienced blockchain users or newcomers?"</em>
+                    If most users land in the top-left (no history + 0 txs), it may indicate fresh wallets
+                    created specifically for this token. If concentrated in bottom-right, it suggests adoption
+                    by established on-chain users.</p>
+                <p>Toggle between <strong>absolute counts</strong> and <strong>percentage view</strong> to understand
+                    relative distribution.</p>
+            </div>
+
+            <div class="card" id="heatmapCard">
+                <h3>Age × Transaction Count</h3>
+                <div class="controls-row">
+                    <div class="btn-group" id="heatmapMode">
+                        <button class="btn active" data-mode="count">User Count</button>
+                        <button class="btn" data-mode="pct">% of Total</button>
+                    </div>
+                </div>
+                <div class="heatmap-wrapper">
+                    <table class="heatmap-table">
+                        <thead id="heatmapHead"></thead>
+                        <tbody id="heatmapBody"></tbody>
+                    </table>
+                </div>
+                <div class="chart-caption">
+                    Matrix[row, col] = COUNT(*) WHERE age_bucket = row AND tx_count_bucket = col.
+                    Color intensity ∝ value / max(matrix).
+                </div>
+            </div>
+
+            <div class="card" id="ageStripCard">
+                <h3>Wallet Age — Proportion Strip</h3>
+                <p class="strip-desc">Each segment's width represents the proportion of new users in that age category.
+                </p>
+                <div id="ageStrip" style="display:flex;border-radius:8px;overflow:hidden;height:36px;"></div>
+                <div id="ageStripLegend"
+                    style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.6rem;font-size:0.75rem;color:var(--text-muted);">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ SCENE 4: KEY INSIGHTS ═══════════ -->
+    <section class="scene" id="scene-insights">
+        <div class="scene-inner">
+            <div class="scene-label">Automated Insights</div>
+            <h2 class="scene-title">Key Takeaways</h2>
+            <p class="scene-narrative">
+                The following insights are <strong>auto-generated</strong> by comparing recent metrics against
+                historical baselines. They are updated every 4 hours along with the underlying data.
+            </p>
+            <div class="insights-grid" id="insightsGrid">
+                <div class="loading">Analyzing data patterns</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════ FOOTER ═══════════ -->
+    <footer class="footer" id="footer">
+        <img src="/static/twin3-logo.svg" alt="twin3" class="footer-logo">
+        <p class="footer-brand">Twin Matrix Soulbound Token Dashboard</p>
+        <p>Powered by <a href="https://twin3.ai" target="_blank">twin3.ai</a> · All data sourced from BSC blockchain
+            via <a href="https://dune.com" target="_blank">Dune Analytics</a></p>
+        <p class="footer-disclaimer">
+            This dashboard is for informational purposes only. Data accuracy is verified against on-chain records
+            but is provided without warranty. Not financial advice.
+        </p>
+        <p class="footer-update" id="footerUpdate"></p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

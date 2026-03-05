@@ -1,0 +1,7 @@
+dune-client>=1.7.0
+pandas>=2.0.0
+jinja2>=3.1.0
+python-dotenv>=1.0.0
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+google-cloud-firestore>=2.14.0

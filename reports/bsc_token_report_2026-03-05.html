@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Growth Report — 2026-03-05</title>
+    <meta name="description"
+        content="Daily growth analysis for BSC token 0xe3ec133e...95156f">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- GSAP + ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* ── CSS Variables (Cream Palette) ───────────────── */
+        :root {
+            --bg-primary: #FBF8F1;
+            --bg-secondary: #F5F0E8;
+            --bg-card: rgba(255, 255, 255, 0.75);
+            --bg-card-hover: rgba(255, 255, 255, 0.9);
+            --bg-code: #F0EBE1;
+
+            --text-primary: #2D2A26;
+            --text-secondary: #5A5550;
+            --text-muted: #7A746A;
+            --text-faint: #A39E94;
+
+            --border-default: #E8E0D4;
+            --border-light: #F0E8DC;
+
+            --accent: #C0785C;
+            --accent-light: #D4A574;
+            --accent-dark: #A06040;
+            --accent-bg: rgba(192, 120, 92, 0.08);
+
+            --green: #5B8C5A;
+            --green-bg: rgba(91, 140, 90, 0.08);
+            --amber: #B8860B;
+            --amber-bg: rgba(184, 134, 11, 0.08);
+            --info: #7B8FA8;
+            --info-bg: rgba(123, 143, 168, 0.08);
+
+            --chart-grid: #EDE6DA;
+            --shadow-sm: 0 1px 3px rgba(45, 42, 38, 0.06);
+            --shadow-md: 0 4px 16px rgba(45, 42, 38, 0.08);
+            --shadow-lg: 0 8px 32px rgba(45, 42, 38, 0.1);
+            --radius: 14px;
+        }
+
+        /* ── Reset & Base ─────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        h1, h2, h3 { font-weight: 700; line-height: 1.2; color: var(--text-primary); }
+
+        /* ── Progress Bar ─────────────────────────────── */
+        .progress-bar {
+            position: fixed; top: 0; left: 0; height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            z-index: 999; width: 0%;
+        }
+
+        /* ── Scene (each scroll section) ──────────────── */
+        .scene {
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: center; padding: 5rem 2rem; position: relative;
+        }
+        .scene:nth-child(even) { background: var(--bg-secondary); }
+        .scene-inner { max-width: 940px; width: 100%; }
+
+        /* ── Hero ─────────────────────────────────────── */
+        .hero {
+            min-height: 100vh; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center;
+            background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
+            position: relative;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: 20%; left: 50%;
+            transform: translateX(-50%); width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(192, 120, 92, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-label {
+            font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 1rem; opacity: 0;
+        }
+        .hero-date {
+            font-size: 3.5rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem; opacity: 0;
+        }
+        .hero-subtitle {
+            font-size: 1.1rem; color: var(--text-muted);
+            max-width: 500px; margin-bottom: 2rem; opacity: 0;
+        }
+        .hero-contract {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+            color: var(--text-faint); padding: 0.5rem 1.2rem;
+            border: 1px solid var(--border-default); border-radius: 999px;
+            background: var(--bg-card); opacity: 0;
+        }
+
+        /* ── Date Picker ──────────────────────────────── */
+        .date-nav {
+            display: flex; align-items: center; gap: 0.5rem;
+            margin-top: 2rem; opacity: 0;
+        }
+        .date-nav button {
+            background: var(--bg-card); border: 1px solid var(--border-default);
+            border-radius: 8px; padding: 0.4rem 0.75rem; cursor: pointer;
+            color: var(--text-secondary); font-size: 1rem;
+            transition: all 0.2s;
+        }
+        .date-nav button:hover {
+            background: var(--accent-bg); border-color: var(--accent);
+            color: var(--accent);
+        }
+        .date-nav input[type="date"] {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+            padding: 0.4rem 0.75rem; border: 1px solid var(--border-default);
+            border-radius: 8px; background: var(--bg-card); color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        /* ── Scroll Indicator ─────────────────────────── */
+        .scroll-indicator {
+            position: absolute; bottom: 2rem; left: 50%;
+            transform: translateX(-50%); display: flex; flex-direction: column;
+            align-items: center; gap: 0.5rem;
+            color: var(--text-faint); font-size: 0.75rem;
+            letter-spacing: 0.1em; opacity: 0;
+        }
+        .scroll-indicator .arrow {
+            width: 20px; height: 20px;
+            border-right: 2px solid var(--text-faint);
+            border-bottom: 2px solid var(--text-faint);
+            transform: rotate(45deg); animation: bounceArrow 2s infinite;
+        }
+        @keyframes bounceArrow {
+            0%, 100% { transform: rotate(45deg) translateY(0); }
+            50% { transform: rotate(45deg) translateY(8px); }
+        }
+
+        /* ── Section Labels ──────────────────────────── */
+        .scene-label {
+            font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 0.75rem; opacity: 0;
+        }
+        .scene-title {
+            font-size: 2rem; font-weight: 800;
+            margin-bottom: 1.5rem; opacity: 0;
+        }
+        .scene-narrative {
+            font-size: 1.05rem; color: var(--text-secondary);
+            margin-bottom: 2.5rem; line-height: 1.8; opacity: 0;
+        }
+
+        /* ── Big Number Cards ────────────────────────── */
+        .big-number-row {
+            display: flex; gap: 1.5rem; margin-bottom: 2.5rem; flex-wrap: wrap;
+        }
+        .big-number {
+            flex: 1; min-width: 200px;
+            background: var(--bg-card); border: 1px solid var(--border-default);
+            border-radius: var(--radius); padding: 2rem; text-align: center;
+            box-shadow: var(--shadow-sm);
+            opacity: 0; transform: translateY(30px);
+            transition: box-shadow 0.3s, transform 0.3s;
+        }
+        .big-number:hover { box-shadow: var(--shadow-md); transform: translateY(-2px) !important; }
+        .big-number .value {
+            font-size: 3rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-dark) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .big-number .label {
+            font-size: 0.75rem; letter-spacing: 0.15em;
+            text-transform: uppercase; color: var(--text-muted); margin-top: 0.5rem;
+        }
+
+        /* ── Chart Container ──────────────────────────── */
+        .chart-container {
+            background: var(--bg-card); border: 1px solid var(--border-default);
+            border-radius: var(--radius); padding: 2rem; margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            opacity: 0; transform: translateY(40px);
+        }
+        .chart-container h3 {
+            font-size: 0.7rem; letter-spacing: 0.2em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 1.5rem;
+        }
+        .chart-wrapper { position: relative; width: 100%; }
+        .chart-wrapper canvas { width: 100% !important; }
+        .chart-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+        .chart-row > .chart-container { flex: 1; min-width: 300px; }
+
+        /* ── Heatmap Table ────────────────────────────── */
+        .heatmap-table {
+            width: 100%; border-collapse: separate; border-spacing: 4px;
+        }
+        .heatmap-table th {
+            font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-muted); padding: 0.75rem; text-align: center;
+        }
+        .heatmap-table td {
+            text-align: center; padding: 0.75rem; border-radius: 8px;
+            font-weight: 600; font-size: 0.9rem; transition: transform 0.2s;
+        }
+        .heatmap-table td:hover { transform: scale(1.05); }
+        .heatmap-table .row-label {
+            text-align: left; color: var(--text-secondary);
+            font-weight: 500; font-size: 0.85rem;
+        }
+
+        /* ── Heatmap Toggle ──────────────────────────── */
+        .heatmap-toggle {
+            display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+        }
+        .heatmap-toggle button {
+            padding: 0.4rem 1rem; border: 1px solid var(--border-default);
+            border-radius: 8px; background: var(--bg-card);
+            color: var(--text-secondary); font-size: 0.8rem;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .heatmap-toggle button.active,
+        .heatmap-toggle button:hover {
+            background: var(--accent); color: #fff;
+            border-color: var(--accent);
+        }
+
+        /* ── Insight Cards ────────────────────────────── */
+        .insight-cards { display: flex; flex-direction: column; gap: 1rem; }
+        .insight-card {
+            background: var(--bg-card); border: 1px solid var(--border-default);
+            border-radius: 12px; padding: 1.5rem 2rem;
+            box-shadow: var(--shadow-sm);
+            opacity: 0; transform: translateX(-30px);
+        }
+        .insight-card.positive { border-left: 3px solid var(--green); background: var(--green-bg); }
+        .insight-card.warning { border-left: 3px solid var(--amber); background: var(--amber-bg); }
+        .insight-card.info { border-left: 3px solid var(--info); background: var(--info-bg); }
+        .insight-card .insight-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.5rem; }
+        .insight-card.positive .insight-title { color: var(--green); }
+        .insight-card.warning .insight-title { color: var(--amber); }
+        .insight-card.info .insight-title { color: var(--info); }
+        .insight-card .insight-detail { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+
+        /* ── Formula / Code Display ───────────────────── */
+        details.formula-block {
+            margin-top: 1.5rem; border: 1px solid var(--border-light);
+            border-radius: 10px; overflow: hidden;
+        }
+        details.formula-block summary {
+            padding: 0.75rem 1.2rem; cursor: pointer;
+            font-size: 0.85rem; font-weight: 500;
+            color: var(--text-muted); background: var(--bg-secondary);
+            user-select: none; transition: color 0.2s;
+        }
+        details.formula-block summary:hover { color: var(--accent); }
+        details.formula-block[open] summary { border-bottom: 1px solid var(--border-light); }
+        .formula-content {
+            padding: 1.2rem; background: var(--bg-code);
+        }
+        .formula-content .formula-desc {
+            font-size: 0.85rem; color: var(--text-secondary);
+            margin-bottom: 1rem; line-height: 1.6;
+        }
+        .formula-content pre {
+            background: #2D2A26; color: #E8E0D4;
+            padding: 1rem 1.2rem; border-radius: 8px;
+            overflow-x: auto; font-size: 0.78rem; line-height: 1.6;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Footer ───────────────────────────────────── */
+        .footer {
+            text-align: center; padding: 3rem 2rem;
+            color: var(--text-faint); font-size: 0.8rem;
+            border-top: 1px solid var(--border-default);
+        }
+
+        /* ── Responsive ───────────────────────────────── */
+        @media (max-width: 640px) {
+            .hero-date { font-size: 2.2rem; }
+            .scene-title { font-size: 1.5rem; }
+            .big-number .value { font-size: 2rem; }
+            .big-number-row { gap: 1rem; }
+            .chart-row { flex-direction: column; }
+            .scene { padding: 3rem 1rem; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SCENE 0: HERO
+     ═══════════════════════════════════════════════════════════ -->
+    <section class="hero" id="hero">
+        <div class="hero-label">DAILY GROWTH REPORT</div>
+        <h1 class="hero-date">2026-03-05</h1>
+        <p class="hero-subtitle">Tracking user acquisition and wallet maturity for your BSC token community.</p>
+        <div class="hero-contract">0xe3ec133e29addfbba26a412c38ed5de37195156f</div>
+        <div class="date-nav">
+            <button id="prevDay" title="Previous day">◀</button>
+            <input type="date" id="datePicker" value="2026-03-05">
+            <button id="nextDay" title="Next day">▶</button>
+        </div>
+        <div class="scroll-indicator">
+            <span>Scroll to explore</span>
+            <div class="arrow"></div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SCENE 1: TODAY'S SNAPSHOT
+     ═══════════════════════════════════════════════════════════ -->
+    <section class="scene" id="scene-today">
+        <div class="scene-inner">
+            <div class="scene-label">Scene 1</div>
+            <h2 class="scene-title">Today's Snapshot</h2>
+            <p class="scene-narrative">Today we onboarded 5,939 new wallets, bringing our total holder base to 75,008. </p>
+
+            <div class="big-number-row">
+                <div class="big-number">
+                    <div class="value" data-count="5939">0</div>
+                    <div class="label">New Users Today</div>
+                </div>
+                <div class="big-number">
+                    <div class="value" data-count="75008">0</div>
+                    <div class="label">Total Holders</div>
+                </div>
+            </div>
+
+            
+            <div class="chart-container">
+                <h3>30-Day Mint Trend — Daily New Users</h3>
+                <div class="chart-wrapper">
+                    <canvas id="trendChart" height="200"></canvas>
+                </div>
+            </div>
+            
+
+            
+            <details class="formula-block">
+                <summary>📐 Calculation Method & SQL</summary>
+                <div class="formula-content">
+                    <div class="formula-desc">Count of distinct wallet addresses that received a mint (NFT transfer from 0x0) via the minter address, within today's date window (midnight-to-midnight in the configured timezone).</div>
+                    
+                    <pre>SELECT COUNT(DISTINCT t."to") AS new_users_today
+FROM nft.transfers t
+JOIN bnb.transactions tx ON tx.hash = t.tx_hash
+WHERE t.blockchain = 'bnb'
+  AND t.contract_address = FROM_HEX('e3ec133e29addfbba26a412c38ed5de37195156f')
+  AND t."from" = FROM_HEX('0000000000000000000000000000000000000000')
+  AND tx."from" = FROM_HEX('344659F3Ef3c2D2A0cdF071ea13Fa87867777777')
+  AND t.block_time >= date_trunc('day', now() AT TIME ZONE 'Asia/Taipei')
+  AND t.block_time < date_trunc('day', now() AT TIME ZONE 'Asia/Taipei') + interval '1' day</pre>
+                    
+                </div>
+            </details>
+            
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SCENE 2: WHO ARE OUR NEW USERS?
+     ═══════════════════════════════════════════════════════════ -->
+    <section class="scene" id="scene-wallet-age">
+        <div class="scene-inner">
+            <div class="scene-label">Scene 2</div>
+            <h2 class="scene-title">Who Are Our New Users?</h2>
+            <p class="scene-narrative">Of today's 3,455 new users, 13% are brand-new wallets with no prior transaction history in the past year. The majority (87%) are existing wallet users, suggesting organic adoption from the broader crypto community. The most common prior activity level is '10-49' transactions (23% of new users).</p>
+
+            
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Wallet Age Distribution</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="ageChart" height="280"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>Prior Transaction Activity</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="txChart" height="280"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+
+            
+            <details class="formula-block">
+                <summary>📐 Calculation Method & SQL</summary>
+                <div class="formula-content">
+                    <div class="formula-desc">For each of today's new users, look back up to 1 year for prior transactions from that wallet. Classify by: (a) wallet age = days since first prior tx, bucketed into 6 ranges; (b) prior tx count, bucketed into 6 ranges. Cross-tabulate to produce a user-count matrix.</div>
+                    
+                    <pre>WITH today_users AS (
+  SELECT t."to" AS wallet, MIN(t.block_time) AS mint_time
+  FROM nft.transfers t
+  JOIN bnb.transactions tx ON tx.hash = t.tx_hash
+  WHERE t.blockchain = 'bnb'
+    AND t.contract_address = FROM_HEX('e3ec...')
+    AND t."from" = 0x0
+    AND tx."from" = minter
+  GROUP BY 1
+),
+prior_tx_counts AS (
+  SELECT u.wallet, COUNT(t.hash) AS prior_tx_count
+  FROM today_users u LEFT JOIN bnb.transactions t
+    ON t."from" = u.wallet AND t.block_time < u.mint_time
+  GROUP BY 1
+)
+SELECT age_bucket, tx_count_bucket, COUNT(*) AS users
+FROM features GROUP BY 1, 2</pre>
+                    
+                </div>
+            </details>
+            
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SCENE 3: CROSS-ANALYSIS HEATMAPS
+     ═══════════════════════════════════════════════════════════ -->
+    <section class="scene" id="scene-matrix">
+        <div class="scene-inner">
+            <div class="scene-label">Scene 3</div>
+            <h2 class="scene-title">Cross-Analysis Heatmaps</h2>
+            <p class="scene-narrative">
+                These heatmaps cross-tabulate wallet age against prior transaction count.
+                Toggle between absolute user counts and percentage of total to explore different perspectives.
+            </p>
+
+            
+            <div class="heatmap-toggle">
+                <button class="active" onclick="showHeatmap('count', this)">User Count</button>
+                <button onclick="showHeatmap('pct', this)">% of Total</button>
+            </div>
+
+            <div class="chart-container" id="heatmapCountContainer">
+                <h3>Age × Transaction Count — User Count</h3>
+                <table class="heatmap-table" id="heatmapTable">
+                    <thead>
+                        <tr>
+                            <th>Wallet Age</th>
+                            <th>0 txs</th>
+                            <th>1-2</th>
+                            <th>3-9</th>
+                            <th>10-49</th>
+                            <th>50-199</th>
+                            <th>200+</th>
+                        </tr>
+                    </thead>
+                    <tbody id="heatmapBody"></tbody>
+                </table>
+            </div>
+
+            <div class="chart-container" id="heatmapPctContainer" style="display:none;">
+                <h3>Age × Transaction Count — % of Total</h3>
+                <table class="heatmap-table" id="heatmapPctTable">
+                    <thead>
+                        <tr>
+                            <th>Wallet Age</th>
+                            <th>0 txs</th>
+                            <th>1-2</th>
+                            <th>3-9</th>
+                            <th>10-49</th>
+                            <th>50-199</th>
+                            <th>200+</th>
+                        </tr>
+                    </thead>
+                    <tbody id="heatmapPctBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Age-only heatstrip -->
+            <div class="chart-container" style="margin-top: 1.5rem;">
+                <h3>Wallet Age — Proportion Strip</h3>
+                <div id="ageStrip" style="display:flex; border-radius:8px; overflow:hidden; height:40px;"></div>
+                <div id="ageStripLegend" style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-top:0.75rem; font-size:0.78rem; color:var(--text-muted);"></div>
+            </div>
+
+            
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SCENE 4: 30-DAY GROWTH TRAJECTORY
+     ═══════════════════════════════════════════════════════════ -->
+    <section class="scene" id="scene-trajectory">
+        <div class="scene-inner">
+            <div class="scene-label">Scene 4</div>
+            <h2 class="scene-title">30-Day Growth Trajectory</h2>
+            <p class="scene-narrative">Over the past 30 days, we averaged 2,813 new users per day (87,212 total). The 7-day moving average is up 157.4% compared to the prior week. Peak day was 2026-03-05 with 11,878 mints.</p>
+
+            
+            <div class="big-number-row">
+                <div class="big-number">
+                    <div class="value" data-count="2813.3">0</div>
+                    <div class="label">Avg. Daily Mints</div>
+                </div>
+                <div class="big-number">
+                    <div class="value" data-count="87212">0</div>
+                    <div class="label">Total (30d)</div>
+                </div>
+                
+                <div class="big-number">
+                    <div class="value">157.4%</div>
+                    <div class="label">7-Day Change</div>
+                </div>
+                
+            </div>
+            
+
+            
+            <div class="chart-container">
+                <h3>Daily New Users — 30-Day View</h3>
+                <div class="chart-wrapper">
+                    <canvas id="trajectoryChart" height="250"></canvas>
+                </div>
+            </div>
+            
+
+            
+            <details class="formula-block">
+                <summary>📐 Calculation Method & SQL</summary>
+                <div class="formula-content">
+                    <div class="formula-desc">For each day in the lookback window, count distinct wallets that received a mint. 7-day moving average change = (avg of last 7 days − avg of prior 7 days) / avg of prior 7 days × 100%.</div>
+                    
+                    <pre>SELECT DATE_TRUNC('day', t.block_time) AS day,
+  COUNT(DISTINCT t."to") AS new_users
+FROM nft.transfers t
+JOIN bnb.transactions tx ON tx.hash = t.tx_hash
+WHERE t.blockchain = 'bnb'
+  AND t.contract_address = FROM_HEX('e3ec...')
+  AND t.block_time >= NOW() - INTERVAL '30' DAY
+GROUP BY 1 ORDER BY 1</pre>
+                    
+                </div>
+            </details>
+            
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SCENE 5: KEY TAKEAWAYS
+     ═══════════════════════════════════════════════════════════ -->
+    <section class="scene" id="scene-insights">
+        <div class="scene-inner">
+            <div class="scene-label">Scene 5</div>
+            <h2 class="scene-title">Key Takeaways</h2>
+            <p class="scene-narrative">Auto-generated insights based on today's data patterns.</p>
+
+            
+            <div class="insight-cards">
+                
+                <div class="insight-card positive">
+                    <div class="insight-title">Above-Average Day</div>
+                    <div class="insight-detail">Today's 5,939 new users is 2.1x the 30-day average (2,813). Consider investigating what's driving the spike.</div>
+                </div>
+                
+                <div class="insight-card positive">
+                    <div class="insight-title">Strong Growth Momentum</div>
+                    <div class="insight-detail">7-day average is up 157.4% vs prior week. Growth is accelerating.</div>
+                </div>
+                
+            </div>
+            
+
+            
+            <details class="formula-block">
+                <summary>📐 Total Holders — Calculation & SQL</summary>
+                <div class="formula-content">
+                    <div class="formula-desc">Count of all-time distinct wallet addresses that have ever received a mint from the minter.</div>
+                    
+                    <pre>SELECT COUNT(DISTINCT t."to") AS total_holders
+FROM nft.transfers t
+JOIN bnb.transactions tx ON tx.hash = t.tx_hash
+WHERE t.blockchain = 'bnb'
+  AND t.contract_address = FROM_HEX('e3ec...')
+  AND t."from" = FROM_HEX('0000...0000')
+  AND tx."from" = FROM_HEX('344659...7777')</pre>
+                    
+                </div>
+            </details>
+            
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Generated 2026-03-05T19:23:59 · Contract 0xe3ec133e...95156f ·
+            Powered by Dune Analytics</p>
+    </footer>
+
+
+    <!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT — GSAP + Charts (Scroll-Triggered)
+     ═══════════════════════════════════════════════════════════ -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        gsap.registerPlugin(ScrollTrigger);
+
+        // ── Progress Bar ─────────────────────────────────
+        window.addEventListener('scroll', () => {
+            const h = document.documentElement;
+            const progress = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+        });
+
+        // ── Date Picker ──────────────────────────────────
+        const datePicker = document.getElementById('datePicker');
+        const prevBtn = document.getElementById('prevDay');
+        const nextBtn = document.getElementById('nextDay');
+
+        function navigateToDate(dateStr) {
+            window.location.href = `bsc_token_report_${dateStr}.html`;
+        }
+        function shiftDate(days) {
+            const d = new Date(datePicker.value);
+            d.setDate(d.getDate() + days);
+            navigateToDate(d.toISOString().slice(0, 10));
+        }
+        datePicker.addEventListener('change', () => navigateToDate(datePicker.value));
+        prevBtn.addEventListener('click', () => shiftDate(-1));
+        nextBtn.addEventListener('click', () => shiftDate(1));
+
+        // ── Hero Animations ──────────────────────────────
+        const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        heroTl
+            .to('.hero-label', { opacity: 1, y: 0, duration: 0.8 })
+            .to('.hero-date', { opacity: 1, y: 0, duration: 1 }, '-=0.4')
+            .to('.hero-subtitle', { opacity: 1, y: 0, duration: 0.8 }, '-=0.5')
+            .to('.hero-contract', { opacity: 1, duration: 0.6 }, '-=0.3')
+            .to('.date-nav', { opacity: 1, duration: 0.6 }, '-=0.2')
+            .to('.scroll-indicator', { opacity: 1, duration: 0.6 }, '-=0.2');
+
+        // ── Scroll-triggered Scene Animations ─────────────
+        document.querySelectorAll('.scene').forEach(scene => {
+            const inner = scene.querySelector('.scene-inner');
+            if (!inner) return;
+
+            gsap.utils.toArray([
+                inner.querySelector('.scene-label'),
+                inner.querySelector('.scene-title'),
+                inner.querySelector('.scene-narrative'),
+            ].filter(Boolean)).forEach((el, i) => {
+                gsap.fromTo(el, { opacity: 0, y: 30 }, {
+                    opacity: 1, y: 0, duration: 0.8,
+                    delay: i * 0.15,
+                    scrollTrigger: { trigger: el, start: 'top 85%', once: true },
+                });
+            });
+
+            inner.querySelectorAll('.big-number').forEach((el, i) => {
+                gsap.fromTo(el, { opacity: 0, y: 30 }, {
+                    opacity: 1, y: 0, duration: 0.6,
+                    delay: i * 0.1,
+                    scrollTrigger: {
+                        trigger: el, start: 'top 85%', once: true,
+                        onEnter: () => {
+                            const valEl = el.querySelector('.value[data-count]');
+                            if (valEl) animateCount(valEl);
+                        },
+                    },
+                });
+            });
+
+            inner.querySelectorAll('.chart-container').forEach((el, i) => {
+                gsap.fromTo(el, { opacity: 0, y: 40 }, {
+                    opacity: 1, y: 0, duration: 0.8,
+                    delay: i * 0.15,
+                    scrollTrigger: { trigger: el, start: 'top 85%', once: true },
+                });
+            });
+
+            inner.querySelectorAll('.insight-card').forEach((el, i) => {
+                gsap.fromTo(el, { opacity: 0, x: -30 }, {
+                    opacity: 1, x: 0, duration: 0.6,
+                    delay: i * 0.15,
+                    scrollTrigger: { trigger: el, start: 'top 90%', once: true },
+                });
+            });
+        });
+
+        // ── Count-up Animation ───────────────────────────
+        function animateCount(el) {
+            const target = parseFloat(el.dataset.count);
+            if (isNaN(target)) return;
+            const isFloat = target % 1 !== 0;
+            const duration = 1500;
+            const start = performance.now();
+            function update(now) {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = target * eased;
+                el.textContent = isFloat
+                    ? current.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                    : Math.round(current).toLocaleString('en-US');
+                if (progress < 1) requestAnimationFrame(update);
+            }
+            requestAnimationFrame(update);
+        }
+
+        // ── Chart.js Config (Cream Theme) ────────────────
+        Chart.defaults.color = '#7A746A';
+        Chart.defaults.borderColor = '#EDE6DA';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.font.size = 11;
+
+        const chartColors = {
+            primary: '#C0785C',
+            primaryLight: 'rgba(192,120,92,0.12)',
+            green: '#5B8C5A',
+            amber: '#B8860B',
+            rose: '#C75C5C',
+            slate: '#7B8FA8',
+            purple: '#9B7DB8',
+            cyan: '#5A9BAD',
+        };
+        const paletteWarm = ['#C0785C', '#D4A574', '#B8860B', '#5B8C5A', '#7B8FA8', '#9B7DB8'];
+
+        // ── Track chart init state ───────────────────────
+        const chartInitState = {};
+        function initChartOnce(id, initFn) {
+            if (chartInitState[id]) return;
+            chartInitState[id] = true;
+            initFn();
+        }
+
+        // ── Trend Chart (Scene 1) — Scroll Triggered ─────
+        
+        const trendCanvas = document.getElementById('trendChart');
+        if (trendCanvas) {
+            ScrollTrigger.create({
+                trigger: trendCanvas, start: 'top 85%', once: true,
+                onEnter: () => initChartOnce('trend', () => {
+                    const trendData = [{"day": "2026-02-03T00:00:00", "new_users": 2083}, {"day": "2026-02-04T00:00:00", "new_users": 2132}, {"day": "2026-02-05T00:00:00", "new_users": 2047}, {"day": "2026-02-06T00:00:00", "new_users": 2113}, {"day": "2026-02-07T00:00:00", "new_users": 2150}, {"day": "2026-02-08T00:00:00", "new_users": 2053}, {"day": "2026-02-09T00:00:00", "new_users": 2073}, {"day": "2026-02-10T00:00:00", "new_users": 2091}, {"day": "2026-02-11T00:00:00", "new_users": 2115}, {"day": "2026-02-12T00:00:00", "new_users": 2072}, {"day": "2026-02-13T00:00:00", "new_users": 2094}, {"day": "2026-02-14T00:00:00", "new_users": 2056}, {"day": "2026-02-15T00:00:00", "new_users": 2112}, {"day": "2026-02-16T00:00:00", "new_users": 2114}, {"day": "2026-02-17T00:00:00", "new_users": 2073}, {"day": "2026-02-18T00:00:00", "new_users": 2125}, {"day": "2026-02-19T00:00:00", "new_users": 2038}, {"day": "2026-02-20T00:00:00", "new_users": 2066}, {"day": "2026-02-21T00:00:00", "new_users": 2074}, {"day": "2026-02-22T00:00:00", "new_users": 2106}, {"day": "2026-02-23T00:00:00", "new_users": 2113}, {"day": "2026-02-24T00:00:00", "new_users": 2025}, {"day": "2026-02-25T00:00:00", "new_users": 1990}, {"day": "2026-02-26T00:00:00", "new_users": 2085}, {"day": "2026-02-27T00:00:00", "new_users": 4298}, {"day": "2026-02-28T00:00:00", "new_users": 4140}, {"day": "2026-03-01T00:00:00", "new_users": 4086}, {"day": "2026-03-02T00:00:00", "new_users": 4278}, {"day": "2026-03-03T00:00:00", "new_users": 4256}, {"day": "2026-03-04T00:00:00", "new_users": 4276}, {"day": "2026-03-05T00:00:00", "new_users": 11878}];
+                    new Chart(trendCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: trendData.map(d => {
+                                const dt = new Date(d.day);
+                                return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            }),
+                            datasets: [{
+                                label: 'New Users',
+                                data: trendData.map(d => d.new_users),
+                                borderColor: chartColors.primary,
+                                backgroundColor: chartColors.primaryLight,
+                                fill: true, tension: 0.4,
+                                pointRadius: 3, pointHoverRadius: 6,
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            animation: { duration: 1200, easing: 'easeOutQuart' },
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false } },
+                                y: { beginAtZero: true, grid: { color: '#EDE6DA' } },
+                            },
+                        },
+                    });
+                }),
+            });
+        }
+        
+
+        // ── Age Distribution (Scene 2) — Scroll Triggered ─
+        
+        const ageCanvas = document.getElementById('ageChart');
+        if (ageCanvas) {
+            ScrollTrigger.create({
+                trigger: ageCanvas, start: 'top 85%', once: true,
+                onEnter: () => initChartOnce('age', () => {
+                    const ageData = [{"age_bucket": "180d-1y", "pct": 21.4, "users": 739}, {"age_bucket": "30-89d", "pct": 12.2, "users": 423}, {"age_bucket": "7-29d", "pct": 18.2, "users": 630}, {"age_bucket": "90-179d", "pct": 17.0, "users": 588}, {"age_bucket": "\u003c7d", "pct": 17.9, "users": 619}, {"age_bucket": "No history (\u003c=1y)", "pct": 13.2, "users": 456}];
+                    new Chart(ageCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ageData.map(d => d.age_bucket),
+                            datasets: [{
+                                data: ageData.map(d => d.users),
+                                backgroundColor: paletteWarm.slice(0, ageData.length),
+                                borderWidth: 0, hoverOffset: 8,
+                            }],
+                        },
+                        options: {
+                            responsive: true, cutout: '60%',
+                            animation: { duration: 1200, easing: 'easeOutQuart' },
+                            plugins: {
+                                legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } },
+                            },
+                        },
+                    });
+                }),
+            });
+        }
+        
+
+        // ── Tx Activity (Scene 2) — Scroll Triggered ─────
+        
+        const txCanvas = document.getElementById('txChart');
+        if (txCanvas) {
+            ScrollTrigger.create({
+                trigger: txCanvas, start: 'top 85%', once: true,
+                onEnter: () => initChartOnce('tx', () => {
+                    const txData = [{"pct": 13.4, "tx_count_bucket": "0", "users": 462}, {"pct": 17.4, "tx_count_bucket": "1-2", "users": 601}, {"pct": 22.8, "tx_count_bucket": "10-49", "users": 787}, {"pct": 12.4, "tx_count_bucket": "200+", "users": 429}, {"pct": 14.6, "tx_count_bucket": "3-9", "users": 503}, {"pct": 19.5, "tx_count_bucket": "50-199", "users": 673}];
+                    new Chart(txCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: txData.map(d => d.tx_count_bucket + ' txs'),
+                            datasets: [{
+                                label: 'Users',
+                                data: txData.map(d => d.users),
+                                backgroundColor: chartColors.primary,
+                                borderRadius: 6, barPercentage: 0.7,
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            animation: { duration: 1200, easing: 'easeOutQuart' },
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false } },
+                                y: { beginAtZero: true, grid: { color: '#EDE6DA' } },
+                            },
+                        },
+                    });
+                }),
+            });
+        }
+        
+
+        // ── Heatmaps (Scene 3) — Scroll Triggered ────────
+        
+        const crossTab = [{"age_bucket": "No history (\u003c=1y)", "tx_count_bucket": "0", "users": 134}, {"age_bucket": "No history (\u003c=1y)", "tx_count_bucket": "1-2", "users": 71}, {"age_bucket": "No history (\u003c=1y)", "tx_count_bucket": "3-9", "users": 11}, {"age_bucket": "No history (\u003c=1y)", "tx_count_bucket": "10-49", "users": 161}, {"age_bucket": "No history (\u003c=1y)", "tx_count_bucket": "50-199", "users": 32}, {"age_bucket": "No history (\u003c=1y)", "tx_count_bucket": "200+", "users": 47}, {"age_bucket": "\u003c7d", "tx_count_bucket": "0", "users": 150}, {"age_bucket": "\u003c7d", "tx_count_bucket": "1-2", "users": 61}, {"age_bucket": "\u003c7d", "tx_count_bucket": "3-9", "users": 36}, {"age_bucket": "\u003c7d", "tx_count_bucket": "10-49", "users": 98}, {"age_bucket": "\u003c7d", "tx_count_bucket": "50-199", "users": 171}, {"age_bucket": "\u003c7d", "tx_count_bucket": "200+", "users": 103}, {"age_bucket": "7-29d", "tx_count_bucket": "0", "users": 34}, {"age_bucket": "7-29d", "tx_count_bucket": "1-2", "users": 192}, {"age_bucket": "7-29d", "tx_count_bucket": "3-9", "users": 100}, {"age_bucket": "7-29d", "tx_count_bucket": "10-49", "users": 174}, {"age_bucket": "7-29d", "tx_count_bucket": "50-199", "users": 130}, {"age_bucket": "30-89d", "tx_count_bucket": "0", "users": 4}, {"age_bucket": "30-89d", "tx_count_bucket": "1-2", "users": 141}, {"age_bucket": "30-89d", "tx_count_bucket": "3-9", "users": 102}, {"age_bucket": "30-89d", "tx_count_bucket": "10-49", "users": 26}, {"age_bucket": "30-89d", "tx_count_bucket": "50-199", "users": 136}, {"age_bucket": "30-89d", "tx_count_bucket": "200+", "users": 14}, {"age_bucket": "90-179d", "tx_count_bucket": "0", "users": 89}, {"age_bucket": "90-179d", "tx_count_bucket": "1-2", "users": 41}, {"age_bucket": "90-179d", "tx_count_bucket": "3-9", "users": 123}, {"age_bucket": "90-179d", "tx_count_bucket": "10-49", "users": 178}, {"age_bucket": "90-179d", "tx_count_bucket": "50-199", "users": 62}, {"age_bucket": "90-179d", "tx_count_bucket": "200+", "users": 95}, {"age_bucket": "180d-1y", "tx_count_bucket": "0", "users": 51}, {"age_bucket": "180d-1y", "tx_count_bucket": "1-2", "users": 95}, {"age_bucket": "180d-1y", "tx_count_bucket": "3-9", "users": 131}, {"age_bucket": "180d-1y", "tx_count_bucket": "10-49", "users": 150}, {"age_bucket": "180d-1y", "tx_count_bucket": "50-199", "users": 142}, {"age_bucket": "180d-1y", "tx_count_bucket": "200+", "users": 170}];
+        const heatmapContainer = document.getElementById('heatmapCountContainer');
+        if (heatmapContainer) {
+            ScrollTrigger.create({
+                trigger: heatmapContainer, start: 'top 85%', once: true,
+                onEnter: () => initChartOnce('heatmap', () => {
+                    buildHeatmap(crossTab, 'heatmapBody', 'count');
+                    buildHeatmap(crossTab, 'heatmapPctBody', 'pct');
+                    buildAgeStrip(crossTab);
+                }),
+            });
+        }
+        
+
+        // ── Heatmap Builder ──────────────────────────────
+        function buildHeatmap(data, bodyId, mode) {
+            const ageBuckets = ['No history (<=1y)', '<7d', '7-29d', '30-89d', '90-179d', '180d-1y'];
+            const txBuckets = ['0', '1-2', '3-9', '10-49', '50-199', '200+'];
+
+            const lookup = {};
+            let maxVal = 0;
+            let total = 0;
+            data.forEach(d => {
+                const key = d.age_bucket + '|' + d.tx_count_bucket;
+                lookup[key] = d.users;
+                total += d.users;
+                if (d.users > maxVal) maxVal = d.users;
+            });
+
+            const tbody = document.getElementById(bodyId);
+            if (!tbody) return;
+
+            ageBuckets.forEach(age => {
+                const row = document.createElement('tr');
+                const labelCell = document.createElement('td');
+                labelCell.className = 'row-label';
+                labelCell.textContent = age;
+                row.appendChild(labelCell);
+
+                txBuckets.forEach(tx => {
+                    const cell = document.createElement('td');
+                    const val = lookup[age + '|' + tx] || 0;
+
+                    if (mode === 'pct') {
+                        const pct = total > 0 ? (val / total * 100) : 0;
+                        cell.textContent = pct > 0 ? pct.toFixed(1) + '%' : '·';
+                    } else {
+                        cell.textContent = val > 0 ? val.toLocaleString() : '·';
+                    }
+
+                    if (val > 0 && maxVal > 0) {
+                        const intensity = val / maxVal;
+                        // Warm terracotta heatmap colors
+                        const r = Math.round(192 + (255 - 192) * (1 - intensity));
+                        const g = Math.round(120 + (248 - 120) * (1 - intensity));
+                        const b = Math.round(92 + (241 - 92) * (1 - intensity));
+                        const alpha = 0.15 + intensity * 0.65;
+                        cell.style.background = `rgba(${192},${120},${92},${alpha})`;
+                        cell.style.color = intensity > 0.5 ? '#FBF8F1' : '#5A5550';
+                    }
+                    row.appendChild(cell);
+                });
+                tbody.appendChild(row);
+            });
+        }
+
+        // ── Age Proportion Strip ─────────────────────────
+        function buildAgeStrip(data) {
+            const ageBuckets = ['No history (<=1y)', '<7d', '7-29d', '30-89d', '90-179d', '180d-1y'];
+            const ageAgg = {};
+            let total = 0;
+            data.forEach(d => {
+                ageAgg[d.age_bucket] = (ageAgg[d.age_bucket] || 0) + d.users;
+                total += d.users;
+            });
+
+            const strip = document.getElementById('ageStrip');
+            const legend = document.getElementById('ageStripLegend');
+            if (!strip || !legend) return;
+
+            ageBuckets.forEach((age, i) => {
+                const count = ageAgg[age] || 0;
+                const pct = total > 0 ? (count / total * 100) : 0;
+                if (pct <= 0) return;
+
+                const seg = document.createElement('div');
+                seg.style.width = pct + '%';
+                seg.style.background = paletteWarm[i % paletteWarm.length];
+                seg.style.transition = 'width 1s ease';
+                seg.title = `${age}: ${pct.toFixed(1)}%`;
+                strip.appendChild(seg);
+
+                const item = document.createElement('span');
+                item.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${paletteWarm[i % paletteWarm.length]};margin-right:4px;vertical-align:middle;"></span>${age} (${pct.toFixed(1)}%)`;
+                legend.appendChild(item);
+            });
+        }
+
+        // ── Heatmap Toggle ───────────────────────────────
+        window.showHeatmap = function(mode, btn) {
+            document.getElementById('heatmapCountContainer').style.display = mode === 'count' ? '' : 'none';
+            document.getElementById('heatmapPctContainer').style.display = mode === 'pct' ? '' : 'none';
+            document.querySelectorAll('.heatmap-toggle button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        };
+
+        // ── Trajectory Chart (Scene 4) — Scroll Triggered ─
+        
+        const trajCanvas = document.getElementById('trajectoryChart');
+        if (trajCanvas) {
+            ScrollTrigger.create({
+                trigger: trajCanvas, start: 'top 85%', once: true,
+                onEnter: () => initChartOnce('trajectory', () => {
+                    const trajData = [{"day": "2026-02-03T00:00:00", "new_users": 2083}, {"day": "2026-02-04T00:00:00", "new_users": 2132}, {"day": "2026-02-05T00:00:00", "new_users": 2047}, {"day": "2026-02-06T00:00:00", "new_users": 2113}, {"day": "2026-02-07T00:00:00", "new_users": 2150}, {"day": "2026-02-08T00:00:00", "new_users": 2053}, {"day": "2026-02-09T00:00:00", "new_users": 2073}, {"day": "2026-02-10T00:00:00", "new_users": 2091}, {"day": "2026-02-11T00:00:00", "new_users": 2115}, {"day": "2026-02-12T00:00:00", "new_users": 2072}, {"day": "2026-02-13T00:00:00", "new_users": 2094}, {"day": "2026-02-14T00:00:00", "new_users": 2056}, {"day": "2026-02-15T00:00:00", "new_users": 2112}, {"day": "2026-02-16T00:00:00", "new_users": 2114}, {"day": "2026-02-17T00:00:00", "new_users": 2073}, {"day": "2026-02-18T00:00:00", "new_users": 2125}, {"day": "2026-02-19T00:00:00", "new_users": 2038}, {"day": "2026-02-20T00:00:00", "new_users": 2066}, {"day": "2026-02-21T00:00:00", "new_users": 2074}, {"day": "2026-02-22T00:00:00", "new_users": 2106}, {"day": "2026-02-23T00:00:00", "new_users": 2113}, {"day": "2026-02-24T00:00:00", "new_users": 2025}, {"day": "2026-02-25T00:00:00", "new_users": 1990}, {"day": "2026-02-26T00:00:00", "new_users": 2085}, {"day": "2026-02-27T00:00:00", "new_users": 4298}, {"day": "2026-02-28T00:00:00", "new_users": 4140}, {"day": "2026-03-01T00:00:00", "new_users": 4086}, {"day": "2026-03-02T00:00:00", "new_users": 4278}, {"day": "2026-03-03T00:00:00", "new_users": 4256}, {"day": "2026-03-04T00:00:00", "new_users": 4276}, {"day": "2026-03-05T00:00:00", "new_users": 11878}];
+                    new Chart(trajCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: trajData.map(d => {
+                                const dt = new Date(d.day);
+                                return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            }),
+                            datasets: [{
+                                label: 'New Users',
+                                data: trajData.map(d => d.new_users),
+                                backgroundColor: trajData.map((d, i) =>
+                                    i === trajData.length - 1 ? chartColors.primary : 'rgba(192,120,92,0.3)'
+                                ),
+                                borderRadius: 4, barPercentage: 0.8,
+                            }],
+                        },
+                        options: {
+                            responsive: true,
+                            animation: { duration: 1200, easing: 'easeOutQuart' },
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false } },
+                                y: { beginAtZero: true, grid: { color: '#EDE6DA' } },
+                            },
+                        },
+                    });
+                }),
+            });
+        }
+        
+    });
+    </script>
+
+</body>
+
+</html>
