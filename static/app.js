@@ -739,21 +739,26 @@
         const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
         const y = d3.scaleBand().domain(projects.map(d => d.name)).range([0, projects.length * rowH]).padding(0.22);
-        const maxH = d3.max(projects, d => d.holders);
-        const x = d3.scaleLinear().domain([0, maxH]).range([0, w]);
 
-        // Light gridlines
+        // Use second-largest as the scale max so #2-#20 have correct proportions
+        // Worldcoin (#1) gets a capped bar with a break symbol
+        const secondMax = projects[1].holders;
+        const x = d3.scaleLinear().domain([0, secondMax * 1.15]).range([0, w]);
+
+        // Light gridlines (based on secondMax)
         [0.25, 0.5, 0.75, 1].forEach(t => {
-            const xp = x(maxH * t);
+            const xp = x(secondMax * t);
             g.append('line').attr('x1', xp).attr('x2', xp).attr('y1', 0).attr('y2', projects.length * rowH)
                 .attr('stroke', '#E8E0D4').attr('stroke-dasharray', '3,3');
         });
 
-        // Bars
+        // Bars — cap any bar exceeding chart width (Worldcoin)
+        const barW = d => Math.min(Math.max(x(d.holders), 6), w);
+
         g.selectAll('.rank-bar').data(projects).join('rect')
             .attr('class', 'rank-bar')
             .attr('x', 0).attr('y', d => y(d.name))
-            .attr('width', d => Math.max(x(d.holders), 6))
+            .attr('width', d => barW(d))
             .attr('height', y.bandwidth())
             .attr('rx', 4)
             .attr('fill', d => d.highlight ? '#C0785C' : '#D4CABC')
@@ -770,14 +775,34 @@
             })
             .on('mouseleave', hideTip);
 
-        // Value labels
+        // Break symbol on capped bars (zigzag ⫽)
+        projects.forEach(d => {
+            if (x(d.holders) > w) {
+                const by = y(d.name);
+                const bh = y.bandwidth();
+                const bx = w - 18;
+                // Zigzag lines
+                const zigW = 6, zigH = bh;
+                const zigPath = `M${bx},${by} l${zigW},${zigH * 0.25} l${-zigW},${zigH * 0.25} l${zigW},${zigH * 0.25} l${-zigW},${zigH * 0.25}`;
+                g.append('path').attr('d', zigPath)
+                    .attr('fill', 'none').attr('stroke', '#FFF').attr('stroke-width', 2.5);
+                g.append('path').attr('d', zigPath)
+                    .attr('fill', 'none').attr('stroke', '#B0A898').attr('stroke-width', 1.2);
+            }
+        });
+
+        // Value labels — inside bar for capped, outside for normal
         g.selectAll('.rank-val').data(projects).join('text')
-            .attr('x', d => Math.max(x(d.holders), 6) + 5)
+            .attr('x', d => x(d.holders) > w ? w - 28 : barW(d) + 5)
             .attr('y', d => y(d.name) + y.bandwidth() / 2)
             .attr('dy', '0.35em')
+            .attr('text-anchor', d => x(d.holders) > w ? 'end' : 'start')
             .style('font-size', '0.68rem')
             .style('font-weight', d => d.highlight ? '700' : '500')
-            .style('fill', d => d.highlight ? '#8B3A1A' : MUTED)
+            .style('fill', d => {
+                if (x(d.holders) > w) return '#FFF';
+                return d.highlight ? '#8B3A1A' : MUTED;
+            })
             .text(d => {
                 if (d.holders >= 1000000) return (d.holders / 1000000).toFixed(1) + 'M';
                 if (d.holders >= 1000) return (d.holders / 1000).toFixed(1) + 'K';
