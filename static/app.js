@@ -721,7 +721,12 @@
         const margin = { top: 10, right: 20, bottom: 30, left: 55 };
         const w = rect.width - margin.left - margin.right;
         const h = rect.height - margin.top - margin.bottom;
-        const order = ['0', '1-2', '3-9', '10-49', '50-199', '200+'];
+        // Dynamic order: detect from data
+        const allOrders = [
+            ['0 txs', '1-5 txs', '6-20 txs', '21-50 txs', '51-100 txs', '101-500 txs', '500+ txs'],
+            ['0', '1-2', '3-9', '10-49', '50-199', '200+'],
+        ];
+        const order = allOrders.find(o => txDist.some(d => o.includes(d.tx_count_bucket))) || allOrders[0];
         txDist.sort((a, b) => order.indexOf(a.tx_count_bucket) - order.indexOf(b.tx_count_bucket));
 
         const svg = container.append('svg').attr('width', rect.width).attr('height', rect.height);
@@ -734,7 +739,7 @@
             .attr('x', d => x(d.tx_count_bucket)).attr('y', d => y(d.users))
             .attr('width', x.bandwidth()).attr('height', d => h - y(d.users))
             .attr('fill', GREEN).attr('rx', 4).attr('opacity', 0.75)
-            .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.tx_count_bucket} txs</strong><br>Users: ${fmt(d.users)}<br>${(d.pct || 0).toFixed(1)}%`))
+            .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.tx_count_bucket}</strong><br>Users: ${fmt(d.users)}<br>${(d.pct || 0).toFixed(1)}%`))
             .on('mouseleave', hideTip);
 
         g.selectAll('.val').data(txDist).join('text')
@@ -744,20 +749,37 @@
             .text(d => d.pct > 1 ? d.pct.toFixed(1) + '%' : '');
 
         g.append('g').attr('transform', `translate(0,${h})`).call(d3.axisBottom(x))
-            .selectAll('text').style('font-size', '0.7rem').style('fill', MUTED);
+            .selectAll('text').style('font-size', '0.65rem').style('fill', MUTED);
         g.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(d3.format('~s')))
             .selectAll('text').style('font-size', '0.7rem').style('fill', MUTED);
     }
 
     /* ═══════════ HEATMAP ═══════════════════════════════════ */
     function buildHeatmap(crossTab, total) {
-        const ageOrder = ['No history (<=1y)', '<7d', '7-29d', '30-89d', '90-179d', '180d-1y'];
-        const txOrder = ['0', '1-2', '3-9', '10-49', '50-199', '200+'];
-        const txLabels = ['0 txs', '1-2 txs', '3-9 txs', '10-49 txs', '50-199 txs', '200+ txs'];
+        // Dynamic bucket detection from data
+        const ageSet = new Set(crossTab.map(r => r.age_bucket));
+        const txSet = new Set(crossTab.map(r => r.tx_count_bucket));
+
+        // Ordered lists for both old and new bucket formats
+        const ageAllOrders = [
+            ['New wallet', '0-1d', '2-7d', '8-14d', '15-30d', '31-60d', '61-90d', '91-180d', '181-365d'],
+            ['No history (<=1y)', '<7d', '7-29d', '30-89d', '90-179d', '180d-1y'],
+        ];
+        const txAllOrders = [
+            ['0 txs', '1-5 txs', '6-20 txs', '21-50 txs', '51-100 txs', '101-500 txs', '500+ txs'],
+            ['0', '1-2', '3-9', '10-49', '50-199', '200+'],
+        ];
+        const ageOrder = ageAllOrders.find(o => crossTab.some(r => o.includes(r.age_bucket)))
+            || ageAllOrders[0];
+        const txOrder = txAllOrders.find(o => crossTab.some(r => o.includes(r.tx_count_bucket)))
+            || txAllOrders[0];
+        // Filter to only buckets present in data
+        const ageFiltered = ageOrder.filter(a => ageSet.has(a));
+        const txFiltered = txOrder.filter(t => txSet.has(t));
 
         const thead = document.getElementById('heatmapHead');
         const tbody = document.getElementById('heatmapBody');
-        thead.innerHTML = `<tr><th>Wallet Age</th>${txLabels.map(l => `<th>${l}</th>`).join('')}</tr>`;
+        thead.innerHTML = `<tr><th>Wallet Age</th>${txFiltered.map(l => `<th>${l}</th>`).join('')}</tr>`;
 
         const lookup = {};
         crossTab.forEach(r => { lookup[r.age_bucket + '|' + r.tx_count_bucket] = r.users; });
@@ -774,8 +796,8 @@
         });
 
         function renderBody() {
-            tbody.innerHTML = ageOrder.map(age => {
-                const cells = txOrder.map(tx => {
+            tbody.innerHTML = ageFiltered.map(age => {
+                const cells = txFiltered.map(tx => {
                     const v = lookup[age + '|' + tx] || 0;
                     const display = showPct ? (total > 0 ? (v / total * 100).toFixed(1) + '%' : '·') : (v > 0 ? fmt(v) : '·');
                     const intensity = v / maxVal;

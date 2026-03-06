@@ -98,6 +98,71 @@ GROUP BY 1, 2
 ORDER BY 1, 2
 """
 
+ALL_HOLDERS_WALLET_SQL = """
+WITH all_holders AS (
+  SELECT t."to" AS wallet, MIN(t.block_time) AS mint_time
+  FROM nft.transfers t
+  JOIN bnb.transactions tx ON tx.hash = t.tx_hash
+  WHERE t.blockchain = 'bnb'
+    AND t.contract_address = FROM_HEX('{token_hex}')
+    AND t."from" = FROM_HEX('0000000000000000000000000000000000000000')
+    AND tx."from" = FROM_HEX('{minter_hex}')
+  GROUP BY 1
+),
+prior_tx_counts AS (
+  SELECT u.wallet, COUNT(t.hash) AS prior_tx_count
+  FROM all_holders u
+  LEFT JOIN bnb.transactions t
+    ON t."from" = u.wallet AND t.block_time < u.mint_time
+    AND t.block_time >= u.mint_time - interval '365' day
+  GROUP BY 1
+),
+first_seen AS (
+  SELECT u.wallet, MIN(t.block_time) AS first_tx_time
+  FROM all_holders u
+  LEFT JOIN bnb.transactions t
+    ON t."from" = u.wallet AND t.block_time < u.mint_time
+    AND t.block_time >= u.mint_time - interval '365' day
+  GROUP BY 1
+),
+features AS (
+  SELECT u.wallet, u.mint_time,
+    COALESCE(c.prior_tx_count, 0) AS prior_tx_count,
+    f.first_tx_time,
+    CASE WHEN f.first_tx_time IS NULL THEN NULL
+      ELSE date_diff('day', f.first_tx_time, u.mint_time)
+    END AS age_days_proxy
+  FROM all_holders u
+  LEFT JOIN prior_tx_counts c ON c.wallet = u.wallet
+  LEFT JOIN first_seen f ON f.wallet = u.wallet
+)
+SELECT
+  CASE
+    WHEN first_tx_time IS NULL THEN 'New wallet'
+    WHEN age_days_proxy <= 1 THEN '0-1d'
+    WHEN age_days_proxy <= 7 THEN '2-7d'
+    WHEN age_days_proxy <= 14 THEN '8-14d'
+    WHEN age_days_proxy <= 30 THEN '15-30d'
+    WHEN age_days_proxy <= 60 THEN '31-60d'
+    WHEN age_days_proxy <= 90 THEN '61-90d'
+    WHEN age_days_proxy <= 180 THEN '91-180d'
+    ELSE '181-365d'
+  END AS age_bucket,
+  CASE
+    WHEN prior_tx_count = 0 THEN '0 txs'
+    WHEN prior_tx_count <= 5 THEN '1-5 txs'
+    WHEN prior_tx_count <= 20 THEN '6-20 txs'
+    WHEN prior_tx_count <= 50 THEN '21-50 txs'
+    WHEN prior_tx_count <= 100 THEN '51-100 txs'
+    WHEN prior_tx_count <= 500 THEN '101-500 txs'
+    ELSE '500+ txs'
+  END AS tx_count_bucket,
+  COUNT(*) AS users
+FROM features
+GROUP BY 1, 2
+ORDER BY 1, 2
+"""
+
 TOTAL_HOLDERS_SQL = """
 SELECT COUNT(DISTINCT t."to") AS total_holders
 FROM nft.transfers t
@@ -160,6 +225,18 @@ class DataSyncer:
         df = self._run_sql(sql)
         if not df.empty:
             logger.info(f"  Got {len(df)} cross-tab rows for {target_date}")
+        return df
+
+    def fetch_all_holders_wallet(self) -> pd.DataFrame:
+        """Fetch wallet analysis for ALL holders (all-time), not just one day."""
+        logger.info("Fetching ALL-holders wallet analysis from Dune...")
+        sql = ALL_HOLDERS_WALLET_SQL.format(
+            token_hex=self.token_hex,
+            minter_hex=self.minter_hex,
+        )
+        df = self._run_sql(sql)
+        if not df.empty:
+            logger.info(f"  Got {len(df)} cross-tab rows for all holders")
         return df
 
     def backfill(self) -> dict:

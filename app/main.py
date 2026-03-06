@@ -97,8 +97,15 @@ async def api_summary():
 
 @app.get("/api/wallet-age/latest")
 async def api_wallet_age_latest():
-    """Get the latest wallet age snapshot."""
-    from app.database import get_latest_wallet_age
+    """Get the latest wallet age snapshot — prefer all-holders analysis."""
+    from app.database import get_ga_aggregated, get_latest_wallet_age
+
+    # Try all-holders analysis first
+    agg = get_ga_aggregated("wallet_all_holders")
+    if agg:
+        return {"status": "ok", "data": agg}
+
+    # Fallback to per-day snapshot
     data = get_latest_wallet_age()
     if not data:
         raise HTTPException(status_code=404, detail="No wallet age data available")
@@ -205,6 +212,58 @@ async def api_daily_sync(request: Request, date: str | None = None):
         results["ga"] = {"status": "error", "message": str(e)}
 
     return JSONResponse(results)
+
+
+@app.post("/api/sync/wallet-all")
+async def api_wallet_all_sync(request: Request):
+    """Run ALL-holders wallet analysis and store result."""
+    _verify_sync_auth(request)
+
+    if not DUNE_API_KEY:
+        raise HTTPException(status_code=500, detail="DUNE_API_KEY not set")
+
+    from app.data_sync import DataSyncer
+    from app.database import upsert_ga_aggregated
+
+    syncer = DataSyncer(DUNE_API_KEY, TOKEN_CONTRACT, MINTER_ADDRESS, TIMEZONE)
+    df = syncer.fetch_all_holders_wallet()
+    if df.empty:
+        raise HTTPException(status_code=500, detail="No data from Dune")
+
+    # Process cross-tab
+    cross_tab = df.to_dict("records")
+    total = int(df["users"].sum())
+
+    # Build age distribution
+    age_agg = df.groupby("age_bucket")["users"].sum().reset_index()
+    age_dist = [
+        {"age_bucket": row["age_bucket"], "users": int(row["users"]),
+         "pct": round(int(row["users"]) / total * 100, 2) if total else 0}
+        for _, row in age_agg.iterrows()
+    ]
+
+    # Build tx distribution
+    tx_agg = df.groupby("tx_count_bucket")["users"].sum().reset_index()
+    tx_dist = [
+        {"tx_count_bucket": row["tx_count_bucket"], "users": int(row["users"]),
+         "pct": round(int(row["users"]) / total * 100, 2) if total else 0}
+        for _, row in tx_agg.iterrows()
+    ]
+
+    data = {
+        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "total_analyzed": total,
+        "cross_tab": cross_tab,
+        "age_distribution": age_dist,
+        "tx_distribution": tx_dist,
+    }
+    upsert_ga_aggregated("wallet_all_holders", data)
+
+    return {
+        "status": "ok",
+        "total_analyzed": total,
+        "cross_tab_cells": len(cross_tab),
+    }
 
 
 # ── API: GA Analytics ────────────────────────────────────────
