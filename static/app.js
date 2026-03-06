@@ -698,6 +698,106 @@
         });
     }
 
+    /* ═══════════ SBT GLOBAL RANKING CHART ═══════════════════ */
+    function buildSbtRankingChart() {
+        const container = d3.select('#sbtRankingChart');
+        container.selectAll('*').remove();
+
+        const projects = [
+            { name: 'Worldcoin World ID', holders: 16900000, chain: 'Optimism', cat: 'Biometric ID', url: 'https://worldcoin.org' },
+            { name: 'Nomis.cc', holders: 1300000, chain: 'Multi-chain', cat: 'Credit Score', url: 'https://nomis.cc' },
+            { name: 'Binance BAB', holders: 1193767, chain: 'BNB Chain', cat: 'KYC Verification', url: 'https://www.binance.com/en/babt' },
+            { name: 'Galxe Passport', holders: 1040000, chain: 'Multi-chain', cat: 'Identity', url: 'https://galxe.com/passport' },
+            { name: 'TON Society', holders: 500000, chain: 'TON', cat: 'Community', url: 'https://society.ton.org' },
+            { name: 'Layer3 CUBEs', holders: 106992, chain: 'Multi-chain', cat: 'Quest Reputation', url: 'https://layer3.xyz' },
+            { name: 'Twin3', holders: 99244, chain: 'BNB Chain', cat: 'AI Agent Identity', url: '#', highlight: true },
+            { name: 'Pudgy Penguins', holders: 4413, chain: 'Ethereum', cat: 'NFT Community', url: 'https://pudgypenguins.com' },
+            { name: 'Moonbirds', holders: 3450, chain: 'Ethereum', cat: 'NFT Community', url: 'https://moonbirds.xyz' },
+        ];
+
+        const rect = container.node().getBoundingClientRect();
+        const margin = { top: 10, right: 100, bottom: 30, left: 140 };
+        const w = rect.width - margin.left - margin.right;
+        const h = rect.height - margin.top - margin.bottom;
+
+        const svg = container.append('svg').attr('width', rect.width).attr('height', rect.height);
+        const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const y = d3.scaleBand().domain(projects.map(d => d.name)).range([0, h]).padding(0.25);
+        const x = d3.scaleLog().domain([1000, d3.max(projects, d => d.holders) * 1.5]).range([0, w]);
+
+        // Bars
+        g.selectAll('.rank-bar').data(projects).join('rect')
+            .attr('class', 'rank-bar')
+            .attr('x', 0).attr('y', d => y(d.name))
+            .attr('width', d => Math.max(x(d.holders), 4))
+            .attr('height', y.bandwidth())
+            .attr('rx', 5)
+            .attr('fill', d => d.highlight ? '#C0785C' : '#D4CABC')
+            .attr('opacity', d => d.highlight ? 1 : 0.65)
+            .attr('stroke', d => d.highlight ? '#8B3A1A' : 'none')
+            .attr('stroke-width', d => d.highlight ? 2 : 0)
+            .on('mousemove', (ev, d) => showTip(ev,
+                `<strong>${d.name}</strong><br>` +
+                `Holders: ${fmt(d.holders)}<br>` +
+                `Chain: ${d.chain}<br>` +
+                `Category: ${d.cat}`))
+            .on('mouseleave', hideTip);
+
+        // Value labels on bars
+        g.selectAll('.rank-val').data(projects).join('text')
+            .attr('x', d => Math.max(x(d.holders), 4) + 6)
+            .attr('y', d => y(d.name) + y.bandwidth() / 2)
+            .attr('dy', '0.35em')
+            .style('font-size', '0.72rem')
+            .style('font-weight', d => d.highlight ? '700' : '500')
+            .style('fill', d => d.highlight ? '#8B3A1A' : MUTED)
+            .text(d => {
+                if (d.holders >= 1000000) return (d.holders / 1000000).toFixed(1) + 'M';
+                if (d.holders >= 1000) return (d.holders / 1000).toFixed(0) + 'K';
+                return fmt(d.holders);
+            });
+
+        // Y axis labels (project names)
+        g.selectAll('.rank-label').data(projects).join('text')
+            .attr('x', -8)
+            .attr('y', d => y(d.name) + y.bandwidth() / 2)
+            .attr('dy', '0.35em')
+            .attr('text-anchor', 'end')
+            .style('font-size', '0.72rem')
+            .style('font-weight', d => d.highlight ? '700' : '400')
+            .style('fill', d => d.highlight ? '#8B3A1A' : '#5A5550')
+            .text(d => d.name);
+
+        // Chain tag badges
+        const chainColors = {
+            'BNB Chain': '#F0B90B', 'Optimism': '#FF0420', 'Multi-chain': '#8B8B8B',
+            'TON': '#0098EA', 'Ethereum': '#627EEA',
+        };
+        g.selectAll('.chain-tag').data(projects).join('text')
+            .attr('x', d => Math.max(x(d.holders), 4) + 6)
+            .attr('y', d => y(d.name) + y.bandwidth() / 2 + 13)
+            .style('font-size', '0.55rem')
+            .style('fill', d => chainColors[d.chain] || MUTED)
+            .style('font-weight', '600')
+            .text(d => d.chain);
+
+        // Highlight marker for Twin3
+        const tw = projects.find(d => d.highlight);
+        if (tw) {
+            const ty = y(tw.name);
+            g.append('text')
+                .attr('x', -margin.left + 8)
+                .attr('y', ty + y.bandwidth() / 2)
+                .attr('dy', '0.35em')
+                .style('font-size', '0.85rem')
+                .text('▶');
+        }
+    }
+
+    // Build ranking chart on page load
+    buildSbtRankingChart();
+
     function buildHourlyChart(hourly) {
         const container = d3.select('#hourlyChart');
         container.selectAll('*').remove();
