@@ -727,15 +727,20 @@
         ];
 
         const rect = container.node().getBoundingClientRect();
-        const margin = { top: 10, right: 90, bottom: 10, left: 155 };
+        const narrow = rect.width < 600;
+        const margin = { top: 10, right: narrow ? 50 : 90, bottom: 10, left: narrow ? 100 : 155 };
         const w = rect.width - margin.left - margin.right;
-        const rowH = 32;
+        const rowH = narrow ? 28 : 32;
         const totalH = projects.length * rowH + margin.top + margin.bottom;
+        const fontSize = narrow ? '0.58rem' : '0.68rem';
+        const fontSizeSm = narrow ? '0.5rem' : '0.6rem';
 
-        // Set container height dynamically
-        container.style('height', totalH + 'px');
+        // Prevent overflow
+        container.style('height', totalH + 'px').style('overflow', 'hidden');
 
-        const svg = container.append('svg').attr('width', rect.width).attr('height', totalH);
+        const svg = container.append('svg')
+            .attr('width', rect.width).attr('height', totalH)
+            .style('overflow', 'hidden');
         const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
         const y = d3.scaleBand().domain(projects.map(d => d.name)).range([0, projects.length * rowH]).padding(0.22);
@@ -797,7 +802,7 @@
             .attr('y', d => y(d.name) + y.bandwidth() / 2)
             .attr('dy', '0.35em')
             .attr('text-anchor', d => x(d.holders) > w ? 'end' : 'start')
-            .style('font-size', '0.68rem')
+            .style('font-size', fontSize)
             .style('font-weight', d => d.highlight ? '700' : '500')
             .style('fill', d => {
                 if (x(d.holders) > w) return '#FFF';
@@ -819,13 +824,13 @@
             const yPos = y(d.name) + y.bandwidth() / 2;
             // Rank number
             g.append('text').attr('x', -margin.left + 6).attr('y', yPos).attr('dy', '0.35em')
-                .style('font-size', '0.6rem').style('fill', d.highlight ? '#C0785C' : '#AAA')
+                .style('font-size', fontSizeSm).style('fill', d.highlight ? '#C0785C' : '#AAA')
                 .style('font-weight', '600')
                 .text(`#${i + 1}`);
             // Project name
             g.append('text').attr('x', -8).attr('y', yPos).attr('dy', '0.35em')
                 .attr('text-anchor', 'end')
-                .style('font-size', '0.68rem')
+                .style('font-size', fontSize)
                 .style('font-weight', d.highlight ? '700' : '400')
                 .style('fill', d.highlight ? '#8B3A1A' : '#5A5550')
                 .text(d.name);
