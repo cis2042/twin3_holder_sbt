@@ -64,8 +64,8 @@ async function lookupWallet() {
             const bscscanContract = `https://bscscan.com/token/${SBT_CONTRACT}`;
             result.innerHTML = `
                 <div class="wallet-not-found">
-                    ⚠ No Twin3 SBT found for this wallet.<br>
-                    <small>This address does not hold a Twin3 Soulbound Token.</small><br>
+                    ⚠ No twin3 SBT found for this wallet.<br>
+                    <small>This address does not hold a twin3 Soulbound Token.</small><br>
                     <a href="${bscscanContract}" target="_blank" rel="noopener">View Contract on BscScan ↗</a>
                 </div>`;
         }
@@ -180,24 +180,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /* ── Boot ─────────────────────────────────────────────── */
+    /* ── Hero entrance animation (always runs) ──────────── */
+    function animateHero() {
+        const tl = gsap.timeline({ delay: 0.3 });
+        tl.to('.hero-logo', { opacity: 1, y: 0, duration: 0.6 })
+            .to('.hero-label', { opacity: 1, y: 0, duration: 0.5 }, '-=0.2')
+            .to('.hero-title', { opacity: 1, y: 0, duration: 0.9 }, '-=0.3')
+            .to('.hero-subtitle-tag', { opacity: 1, y: 0, duration: 0.5 }, '-=0.3')
+            .to('.hero-subtitle', { opacity: 1, y: 0, duration: 0.6, stagger: 0.15 }, '-=0.2')
+            .to('.hero-subtitle-sm', { opacity: 1, y: 0, duration: 0.5 }, '-=0.2')
+            .to('.hero-contract', { opacity: 1, duration: 0.4 }, '-=0.1')
+            .to('.hero-stats', { opacity: 1, y: 0, duration: 0.6 }, '-=0.2')
+            .to('.hero-last-update', { opacity: 1, duration: 0.4 }, '-=0.1')
+            .to('.scroll-indicator', { opacity: 1, duration: 0.5 }, '-=0.1');
+    }
+
     async function init() {
         initDatePicker();
+        // Always animate the hero, even if API calls fail
+        animateHero();
         try {
-            const [summary, dailyResp, gaDaily, gaSummary, formulas] = await Promise.all([
+            const results = await Promise.allSettled([
                 API('/api/stats/summary'),
                 API('/api/stats/daily'),
                 API('/api/ga/daily'),
                 API('/api/ga/summary'),
                 API('/api/formulas'),
             ]);
-            allDailyData = dailyResp.data || [];
-            allGaData = gaDaily.data || [];
-            buildHero(summary);
-            buildTimeline(allDailyData, summary.metrics);
-            buildGA(allGaData, gaSummary.data);
+            const val = i => results[i].status === 'fulfilled' ? results[i].value : null;
+            const summary = val(0);
+            const dailyResp = val(1);
+            const gaDaily = val(2);
+            const gaSummary = val(3);
+            const formulas = val(4);
+
+            if (dailyResp) allDailyData = dailyResp.data || [];
+            if (gaDaily) allGaData = gaDaily.data || [];
+            if (summary) buildHero(summary);
+            if (summary && dailyResp) buildTimeline(allDailyData, summary.metrics);
+            if (gaDaily || gaSummary) buildGA(allGaData, gaSummary?.data);
             loadWallet();
-            loadFormulas(formulas);
-            buildInsights(summary, gaSummary.data);
+            if (formulas) loadFormulas(formulas);
+            if (summary) buildInsights(summary, gaSummary?.data);
         } catch (e) {
             console.error('Init failed:', e);
         }
@@ -240,19 +264,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const footerEl = document.getElementById('footerUpdate');
             if (footerEl) footerEl.textContent = `Data as of ${ts} UTC · Auto-refreshed every 4 hours`;
         }
-
-        // Hero entrance
-        const tl = gsap.timeline({ delay: 0.3 });
-        tl.to('.hero-logo', { opacity: 1, y: 0, duration: 0.6 })
-            .to('.hero-label', { opacity: 1, y: 0, duration: 0.5 }, '-=0.2')
-            .to('.hero-title', { opacity: 1, y: 0, duration: 0.9 }, '-=0.3')
-            .to('.hero-subtitle-tag', { opacity: 1, y: 0, duration: 0.5 }, '-=0.3')
-            .to('.hero-subtitle', { opacity: 1, y: 0, duration: 0.6, stagger: 0.15 }, '-=0.2')
-            .to('.hero-subtitle-sm', { opacity: 1, y: 0, duration: 0.5 }, '-=0.2')
-            .to('.hero-contract', { opacity: 1, duration: 0.4 }, '-=0.1')
-            .to('.hero-stats', { opacity: 1, y: 0, duration: 0.6 }, '-=0.2')
-            .to('.hero-last-update', { opacity: 1, duration: 0.4 }, '-=0.1')
-            .to('.scroll-indicator', { opacity: 1, duration: 0.5 }, '-=0.1');
     }
 
     /* ═══════════ TIMELINE ═══════════════════════════════════ */
@@ -784,26 +795,20 @@ document.addEventListener('DOMContentLoaded', () => {
         container.selectAll('*').remove();
 
         const projects = [
-            { name: 'Worldcoin World ID', holders: 16900000, chain: 'Optimism', cat: 'Biometric ID' },
-            { name: 'Nomis.cc', holders: 1300000, chain: 'Multi-chain', cat: 'Credit Score' },
-            { name: 'Binance BAB', holders: 1193767, chain: 'BNB Chain', cat: 'KYC Verification' },
-            { name: 'Galxe Passport', holders: 1040000, chain: 'Multi-chain', cat: 'Identity' },
-            { name: 'TON Society', holders: 500000, chain: 'TON', cat: 'Community' },
-            { name: 'Sismo', holders: 200000, chain: 'Ethereum', cat: 'Privacy Credential' },
-            { name: 'Layer3 CUBEs', holders: 106992, chain: 'Multi-chain', cat: 'Quest Reputation' },
-            { name: 'Twin3', holders: 99244, chain: 'BNB Chain', cat: 'AI Agent Identity', highlight: true },
-            { name: 'Guild.xyz', holders: 70000, chain: 'Multi-chain', cat: 'Community Gates' },
-            { name: 'Rabbithole', holders: 55000, chain: 'Polygon', cat: 'Quest / Education' },
-            { name: 'Otterspace', holders: 45000, chain: 'Optimism', cat: 'DAO Governance' },
-            { name: 'DeQuest', holders: 40000, chain: 'Multi-chain', cat: 'GameFi Achievement' },
-            { name: 'Nouns DAO', holders: 30000, chain: 'Ethereum', cat: 'DAO Governance' },
-            { name: 'Spectral Finance', holders: 25000, chain: 'Multi-chain', cat: 'On-chain Credit' },
-            { name: 'ARCx Credit', holders: 20000, chain: 'Ethereum', cat: 'DeFi Credit Score' },
-            { name: 'Meta Apes', holders: 15000, chain: 'BNB Chain', cat: 'Gaming Community' },
-            { name: 'Masa Finance', holders: 12000, chain: 'Multi-chain', cat: 'Identity / Credit' },
-            { name: 'Pudgy Penguins', holders: 4413, chain: 'Ethereum', cat: 'NFT Community' },
-            { name: 'Moonbirds', holders: 3450, chain: 'Ethereum', cat: 'NFT Community' },
-            { name: 'Underdog Protocol', holders: 3000, chain: 'Solana', cat: 'SBT Infra' },
+            { name: 'Worldcoin World ID', holders: 18000000, chain: 'Optimism', cat: 'Biometric ID', url: 'https://world.org/world-id' },
+            { name: 'Layer3 CUBEs', holders: 3000000, chain: 'Multi-chain', cat: 'Quest Reputation', url: 'https://layer3.xyz' },
+            { name: 'Binance BAB', holders: 1200000, chain: 'BNB Chain', cat: 'KYC Verification', url: 'https://www.binance.com/en/babt' },
+            { name: 'Galxe Passport', holders: 1000000, chain: 'Multi-chain', cat: 'Identity / KYC', url: 'https://galxe.com/passport' },
+            { name: 'TON Society SBT', holders: 500000, chain: 'TON', cat: 'Community', url: 'https://society.ton.org' },
+            { name: 'Nomis.cc', holders: 200000, chain: 'Multi-chain', cat: 'Reputation Score', url: 'https://nomis.cc' },
+            { name: 'twin3', holders: 103000, chain: 'BNB Chain', cat: 'AI Agent Identity', highlight: true, url: 'https://bscscan.com/token/0xe3ec133e29addfbba26a412c38ed5de37195156f' },
+            { name: 'Masa Finance', holders: 70000, chain: 'Multi-chain', cat: 'Identity / Credit', url: 'https://masa.ai' },
+            { name: 'Guild.xyz', holders: 50000, chain: 'Multi-chain', cat: 'Community Gates', url: 'https://guild.xyz' },
+            { name: 'Otterspace', holders: 30000, chain: 'Optimism', cat: 'DAO Governance', url: 'https://otterspace.xyz' },
+            { name: 'DeQuest', holders: 25000, chain: 'Multi-chain', cat: 'GameFi Achievement', url: 'https://dequest.io' },
+            { name: 'RabbitHole', holders: 17000, chain: 'Polygon', cat: 'Quest / Education', url: 'https://rabbithole.gg' },
+            { name: 'ARCx Credit', holders: 5000, chain: 'Ethereum', cat: 'DeFi Passport', url: 'https://arcx.money' },
+            { name: 'Underdog Protocol', holders: 3000, chain: 'Solana', cat: 'SBT Infra', url: 'https://underdogprotocol.com' },
         ];
 
         const rect = container.node().getBoundingClientRect();
@@ -907,19 +912,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 .style('font-size', fontSizeSm).style('fill', d.highlight ? '#C0785C' : '#AAA')
                 .style('font-weight', '600')
                 .text(`#${i + 1}`);
-            // Project name
-            g.append('text').attr('x', -8).attr('y', yPos).attr('dy', '0.35em')
+            // Project name (clickable link)
+            const link = g.append('a')
+                .attr('href', d.url)
+                .attr('target', '_blank')
+                .attr('rel', 'noopener');
+            link.append('text').attr('x', -8).attr('y', yPos).attr('dy', '0.35em')
                 .attr('text-anchor', 'end')
                 .style('font-size', fontSize)
                 .style('font-weight', d.highlight ? '700' : '400')
                 .style('fill', d.highlight ? '#8B3A1A' : '#5A5550')
-                .text(d.name);
+                .style('cursor', 'pointer')
+                .style('text-decoration', 'none')
+                .text(d.name)
+                .on('mouseenter', function() { d3.select(this).style('text-decoration', 'underline'); })
+                .on('mouseleave', function() { d3.select(this).style('text-decoration', 'none'); });
             // Chain dot
             g.append('circle').attr('cx', -margin.left + 30).attr('cy', yPos)
                 .attr('r', 3).attr('fill', chainColors[d.chain] || MUTED);
         });
 
-        // Highlight glow for Twin3
+        // Highlight glow for twin3
         const tw = projects.find(d => d.highlight);
         if (tw) {
             const ty = y(tw.name);
