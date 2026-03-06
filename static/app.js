@@ -598,12 +598,39 @@
                 .attr('stroke-width', 0.3);
         });
 
-        // Legend
-        const legend = d3.select('#countryLegend');
-        legend.selectAll('*').remove();
-        const legendW = Math.min(w - 40, 300);
-        const legendSvg = legend.append('svg').attr('width', legendW + 60).attr('height', 30);
+        // Country name → ISO 3166-1 alpha-2 code for flag emoji
+        const countryToCode = {
+            'Indonesia': 'ID', 'Vietnam': 'VN', 'Nigeria': 'NG', 'United States': 'US',
+            'India': 'IN', 'Bangladesh': 'BD', 'Taiwan': 'TW', 'Philippines': 'PH',
+            'Japan': 'JP', 'Pakistan': 'PK', 'Turkey': 'TR', 'Türkiye': 'TR',
+            'Germany': 'DE', 'France': 'FR', 'United Kingdom': 'GB', 'Brazil': 'BR',
+            'Russia': 'RU', 'South Korea': 'KR', 'Thailand': 'TH', 'Malaysia': 'MY',
+            'Egypt': 'EG', 'Mexico': 'MX', 'Argentina': 'AR', 'Colombia': 'CO',
+            'Spain': 'ES', 'Italy': 'IT', 'Canada': 'CA', 'Australia': 'AU',
+            'Netherlands': 'NL', 'Poland': 'PL', 'Ukraine': 'UA', 'Kenya': 'KE',
+            'South Africa': 'ZA', 'Ghana': 'GH', 'Singapore': 'SG', 'Iran': 'IR',
+            'Iraq': 'IQ', 'Saudi Arabia': 'SA', 'China': 'CN', 'Sri Lanka': 'LK',
+            'Nepal': 'NP', 'Morocco': 'MA', 'Algeria': 'DZ', 'Ethiopia': 'ET',
+            'Tanzania': 'TZ', 'Uganda': 'UG', 'Cameroon': 'CM', 'Myanmar': 'MM',
+            'Cambodia': 'KH', 'Peru': 'PE', 'Chile': 'CL', 'Venezuela': 'VE',
+            'Romania': 'RO', 'Czech Republic': 'CZ', 'Hungary': 'HU', 'Sweden': 'SE',
+            'Belgium': 'BE', 'Austria': 'AT', 'Switzerland': 'CH', 'Portugal': 'PT',
+            'Greece': 'GR', 'Israel': 'IL', 'Hong Kong': 'HK',
+        };
+        function getFlag(name) {
+            const code = countryToCode[name];
+            if (!code) return '🌐';
+            return String.fromCodePoint(...[...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+        }
 
+        // Legend + Top 10 country list — rendered in #countryLegend (outside chart)
+        const legendArea = d3.select('#countryLegend');
+        legendArea.selectAll('*').remove();
+
+        // Gradient legend bar
+        const legendW = Math.min(w - 40, 260);
+        const legendSvg = legendArea.append('svg').attr('width', legendW + 60).attr('height', 28)
+            .style('display', 'block').style('margin-bottom', '0.6rem');
         const defs = legendSvg.append('defs');
         const lGrad = defs.append('linearGradient').attr('id', 'mapLegendGrad');
         [0, 0.25, 0.5, 0.75, 1].forEach(t => {
@@ -611,22 +638,63 @@
                 .attr('offset', `${t * 100}%`)
                 .attr('stop-color', colorScale(Math.pow(maxUsers, t)));
         });
-        legendSvg.append('rect').attr('x', 30).attr('y', 2).attr('width', legendW).attr('height', 12).attr('rx', 4)
+        legendSvg.append('rect').attr('x', 30).attr('y', 2).attr('width', legendW).attr('height', 10).attr('rx', 4)
             .attr('fill', 'url(#mapLegendGrad)');
-        legendSvg.append('text').attr('x', 30).attr('y', 26).text('1').style('font-size', '0.65rem').style('fill', MUTED);
-        legendSvg.append('text').attr('x', 30 + legendW).attr('y', 26).attr('text-anchor', 'end')
-            .text(fmt(maxUsers)).style('font-size', '0.65rem').style('fill', MUTED);
-        legendSvg.append('text').attr('x', 30 + legendW / 2).attr('y', 26).attr('text-anchor', 'middle')
-            .text('Active Users').style('font-size', '0.65rem').style('fill', MUTED);
+        legendSvg.append('text').attr('x', 30).attr('y', 24).text('1')
+            .style('font-size', '0.6rem').style('fill', MUTED);
+        legendSvg.append('text').attr('x', 30 + legendW).attr('y', 24).attr('text-anchor', 'end')
+            .text(fmt(maxUsers) + ' users').style('font-size', '0.6rem').style('fill', MUTED);
 
-        // Top countries list below map
-        const top5 = countries.slice(0, 5);
-        const listDiv = container.append('div').style('display', 'flex').style('gap', '1rem')
-            .style('flex-wrap', 'wrap').style('padding', '0.8rem 0.5rem 0').style('justify-content', 'center');
-        top5.forEach((c, i) => {
-            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
-            listDiv.append('div').style('font-size', '0.8rem').style('color', '#5A5550')
-                .html(`<span style="margin-right:4px">${medal}</span><strong>${c.country}</strong> ${fmt(c.activeUsers)}`);
+        // Top 10 country list
+        const top10 = countries.slice(0, 10);
+        const listDiv = legendArea.append('div')
+            .style('display', 'flex').style('gap', '0.5rem 1.2rem')
+            .style('flex-wrap', 'wrap').style('justify-content', 'flex-start');
+
+        top10.forEach((c, i) => {
+            const flag = getFlag(c.country);
+            const pct = countries.reduce((s, x) => s + x.activeUsers, 0);
+            const share = (c.activeUsers / pct * 100).toFixed(1);
+            const item = listDiv.append('div')
+                .style('display', 'flex').style('align-items', 'center').style('gap', '0.3rem')
+                .style('font-size', '0.78rem').style('color', '#5A5550')
+                .style('cursor', 'pointer').style('padding', '0.25rem 0.5rem')
+                .style('border-radius', '6px').style('transition', 'background 0.2s')
+                .attr('title', `Click to highlight ${c.country} on the map`);
+
+            item.on('mouseenter', function () { d3.select(this).style('background', 'rgba(192,120,92,0.12)'); })
+                .on('mouseleave', function () { d3.select(this).style('background', 'transparent'); });
+
+            item.html(`<span style="font-size:1.1rem">${flag}</span> ` +
+                `<strong>${c.country}</strong> ` +
+                `<span style="color:var(--accent)">${fmt(c.activeUsers)}</span> ` +
+                `<span style="color:var(--text-muted);font-size:0.65rem">${share}%</span>`);
+
+            // Click to highlight country on map
+            item.on('click', () => {
+                const topoName = nameMap[c.country] || c.country;
+                svg.selectAll('.country-path')
+                    .transition().duration(300)
+                    .attr('fill', d => {
+                        const match = countryLookup[d.properties.name];
+                        if (d.properties.name === topoName) return '#C0785C';
+                        return match ? colorScale(match.activeUsers) : '#EDE6DA';
+                    })
+                    .attr('stroke', d => d.properties.name === topoName ? '#8B3A1A' : '#D4CABC')
+                    .attr('stroke-width', d => d.properties.name === topoName ? 2 : 0.4);
+
+                // Reset after 2s
+                setTimeout(() => {
+                    svg.selectAll('.country-path')
+                        .transition().duration(500)
+                        .attr('fill', d => {
+                            const match = countryLookup[d.properties.name];
+                            return match ? colorScale(match.activeUsers) : '#EDE6DA';
+                        })
+                        .attr('stroke', '#D4CABC')
+                        .attr('stroke-width', 0.4);
+                }, 2500);
+            });
         });
     }
 
