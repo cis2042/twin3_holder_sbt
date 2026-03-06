@@ -155,3 +155,42 @@ def update_sync_meta(last_synced_date: str, total_records: int, backfill_complet
         "backfill_complete": backfill_complete,
         "updated_at": datetime.utcnow().isoformat() + "Z",
     }, merge=True)
+
+
+# ── GA Daily Stats ───────────────────────────────────────────
+
+GA_DAILY = "ga_daily_stats"
+
+
+def upsert_ga_daily(date_str: str, data: dict):
+    """Upsert a day's GA analytics data."""
+    doc_ref = db.collection(GA_DAILY).document(date_str)
+    doc_ref.set({
+        "date": date_str,
+        **data,
+        "synced_at": datetime.utcnow().isoformat() + "Z",
+    }, merge=True)
+
+
+def get_ga_daily(from_date: str | None = None, to_date: str | None = None) -> list[dict]:
+    """Get GA daily stats, optionally filtering by date range."""
+    query = db.collection(GA_DAILY).order_by("date")
+    if from_date:
+        query = query.where(filter=firestore.FieldFilter("date", ">=", from_date))
+    if to_date:
+        query = query.where(filter=firestore.FieldFilter("date", "<=", to_date))
+    return [doc.to_dict() for doc in query.stream()]
+
+
+def get_ga_latest() -> dict | None:
+    """Get the most recent GA daily stat with full breakdown."""
+    docs = (
+        db.collection(GA_DAILY)
+        .order_by("date", direction=firestore.Query.DESCENDING)
+        .limit(1)
+        .stream()
+    )
+    for doc in docs:
+        return doc.to_dict()
+    return None
+

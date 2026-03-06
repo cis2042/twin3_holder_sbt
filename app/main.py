@@ -185,13 +185,116 @@ async def api_daily_sync(request: Request, date: str | None = None):
     """Trigger daily sync. Called by Cloud Scheduler."""
     _verify_sync_auth(request)
 
-    if not DUNE_API_KEY:
-        raise HTTPException(status_code=500, detail="DUNE_API_KEY not configured")
+    results = {}
 
-    from app.data_sync import DataSyncer
-    syncer = DataSyncer(DUNE_API_KEY, TOKEN_CONTRACT, MINTER_ADDRESS, TIMEZONE)
-    result = syncer.daily_sync(target_date=date)
-    return JSONResponse(result)
+    # Dune sync
+    if DUNE_API_KEY:
+        from app.data_sync import DataSyncer
+        syncer = DataSyncer(DUNE_API_KEY, TOKEN_CONTRACT, MINTER_ADDRESS, TIMEZONE)
+        results["dune"] = syncer.daily_sync(target_date=date)
+    else:
+        results["dune"] = {"status": "skipped", "reason": "DUNE_API_KEY not set"}
+
+    # GA sync
+    try:
+        from app.ga_sync import GASyncer
+        ga = GASyncer()
+        results["ga"] = ga.sync_daily(target_date=date)
+    except Exception as e:
+        logger.warning(f"GA sync failed: {e}")
+        results["ga"] = {"status": "error", "message": str(e)}
+
+    return JSONResponse(results)
+
+
+# ── API: GA Analytics ────────────────────────────────────────
+
+@app.get("/api/ga/daily")
+async def api_ga_daily(from_date: str | None = None, to_date: str | None = None):
+    """Get GA daily overview metrics with optional date range."""
+    from app.database import get_ga_daily
+    data = get_ga_daily(from_date, to_date)
+    # Extract just the overview metrics for the timeline
+    timeline = []
+    for d in data:
+        ov = d.get("overview", {})
+        if ov:
+            date_val = ov.get("date", d.get("date", ""))
+            # Normalize YYYYMMDD → YYYY-MM-DD
+            if len(date_val) == 8 and "-" not in date_val:
+                date_val = f"{date_val[:4]}-{date_val[4:6]}-{date_val[6:8]}"
+            timeline.append({
+                "date": date_val,
+                "activeUsers": ov.get("activeUsers", 0),
+                "newUsers": ov.get("newUsers", 0),
+                "sessions": ov.get("sessions", 0),
+                "pageviews": ov.get("screenPageViews", 0),
+                "avgDuration": round(ov.get("averageSessionDuration", 0), 1),
+                "bounceRate": round(ov.get("bounceRate", 0) * 100, 1) if isinstance(ov.get("bounceRate", 0), float) and ov.get("bounceRate", 0) < 1 else round(ov.get("bounceRate", 0), 1),
+                "engagedSessions": ov.get("engagedSessions", 0),
+            })
+    return {"status": "ok", "count": len(timeline), "data": timeline}
+
+
+@app.get("/api/ga/summary")
+async def api_ga_summary():
+    """Get latest GA summary with traffic, devices, countries."""
+    from app.database import get_ga_latest, get_ga_daily
+    latest = get_ga_latest()
+    if not latest:
+        return {"status": "ok", "data": None}
+
+    # Also compute aggregated totals
+    all_ga = get_ga_daily()
+    total_users = sum(d.get("overview", {}).get("activeUsers", 0) for d in all_ga)
+    total_sessions = sum(d.get("overview", {}).get("sessions", 0) for d in all_ga)
+    total_pageviews = sum(d.get("overview", {}).get("screenPageViews", 0) for d in all_ga)
+
+    return {
+        "status": "ok",
+        "data": {
+            "latest_date": latest.get("date"),
+            "traffic_sources": latest.get("traffic_sources", []),
+            "top_pages": latest.get("top_pages", []),
+            "devices": latest.get("devices", []),
+            "countries": latest.get("countries", []),
+            "hourly": latest.get("hourly", []),
+            "totals": {
+                "active_users": total_users,
+                "sessions": total_sessions,
+                "pageviews": total_pageviews,
+                "days_tracked": len(all_ga),
+            },
+        },
+    }
+
+
+@app.post("/api/sync/ga")
+async def api_ga_sync(request: Request, date: str | None = None):
+    """Trigger GA data sync."""
+    _verify_sync_auth(request)
+    try:
+        from app.ga_sync import GASyncer
+        ga = GASyncer()
+        result = ga.sync_daily(target_date=date)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error(f"GA sync failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sync/ga-backfill")
+async def api_ga_backfill(request: Request, days: int = 90):
+    """Trigger GA historical backfill."""
+    _verify_sync_auth(request)
+    try:
+        from app.ga_sync import GASyncer
+        ga = GASyncer()
+        result = ga.backfill(days=days)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error(f"GA backfill failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Health ───────────────────────────────────────────────────
@@ -199,3 +302,4 @@ async def api_daily_sync(request: Request, date: str | None = None):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+

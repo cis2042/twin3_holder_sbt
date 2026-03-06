@@ -867,6 +867,154 @@ details.formula-sql summary:hover {
     color: var(--accent);
 }
 
+/* ── Date Picker Bar ─────────────────────────────────────── */
+.date-picker-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(251, 248, 241, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-light);
+    padding: 0.7rem 1.5rem;
+    transition: box-shadow 0.3s;
+}
+
+.date-picker-bar.scrolled {
+    box-shadow: var(--shadow-md);
+}
+
+.date-picker-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.date-picker-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.date-picker-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+
+.date-picker-presets {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.date-picker-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.date-input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card-solid);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.date-input:focus {
+    border-color: var(--accent);
+}
+
+.date-sep {
+    color: var(--text-faint);
+    font-size: 0.8rem;
+}
+
+/* ── Controls Row ────────────────────────────────────────── */
+.controls-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+/* ── Insights Grid ───────────────────────────────────────── */
+.insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.insight-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.3rem 1.4rem;
+    border-left: 4px solid var(--accent);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.insight-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.insight-card.positive {
+    border-left-color: var(--green);
+}
+
+.insight-card.info {
+    border-left-color: var(--info);
+}
+
+.insight-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 0.3rem;
+}
+
+.insight-card.positive .insight-title {
+    color: var(--green);
+}
+
+.insight-card.info .insight-title {
+    color: var(--info);
+}
+
+.insight-body {
+    font-size: 0.83rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* ── Strip Description ───────────────────────────────────── */
+.strip-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+}
+
+/* ── Footer ──────────────────────────────────────────────── */
+.footer a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
     .hero {
@@ -966,5 +1114,31 @@ details.formula-sql summary:hover {
 
     .footer {
         padding: 2rem 1.5rem;
+    }
+
+    .date-picker-bar {
+        padding: 0.5rem 1rem;
+    }
+
+    .date-picker-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .date-picker-presets {
+        flex-wrap: wrap;
+    }
+
+    .date-input {
+        font-size: 0.72rem;
+    }
+
+    .insights-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .controls-row {
+        flex-wrap: wrap;
     }
 }
