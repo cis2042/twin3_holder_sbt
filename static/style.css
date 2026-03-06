@@ -287,14 +287,12 @@ h3 {
     text-transform: uppercase;
     color: var(--accent);
     margin-bottom: 0.75rem;
-    opacity: 0;
 }
 
 .scene-title {
     font-size: 1.9rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    opacity: 0;
 }
 
 .scene-narrative {
@@ -302,7 +300,6 @@ h3 {
     color: var(--text-secondary);
     margin-bottom: 2rem;
     line-height: 1.8;
-    opacity: 0;
 }
 
 /* ── Cards ────────────────────────────────────────────────── */
@@ -313,8 +310,6 @@ h3 {
     padding: 2rem;
     box-shadow: var(--shadow-sm);
     margin-bottom: 1.5rem;
-    opacity: 0;
-    transform: translateY(30px);
     transition: box-shadow 0.3s, transform 0.3s;
 }
 
@@ -347,8 +342,6 @@ h3 {
     padding: 1.5rem;
     text-align: center;
     box-shadow: var(--shadow-sm);
-    opacity: 0;
-    transform: translateY(20px);
     transition: box-shadow 0.3s, transform 0.2s;
 }
 
@@ -533,8 +526,6 @@ h3 {
     border-radius: 12px;
     padding: 1.3rem 1.8rem;
     box-shadow: var(--shadow-sm);
-    opacity: 0;
-    transform: translateX(-20px);
 }
 
 .insight-card.positive {
@@ -707,8 +698,6 @@ details.formula-block[open] summary {
     border-radius: 0 10px 10px 0;
     padding: 1.2rem 1.5rem;
     margin-bottom: 1.5rem;
-    opacity: 0;
-    transform: translateY(15px);
 }
 
 .explanation-block p {
@@ -772,8 +761,6 @@ details.formula-block[open] summary {
     border-radius: var(--radius);
     overflow: hidden;
     margin-top: 1.5rem;
-    opacity: 0;
-    transform: translateY(20px);
 }
 
 .formula-card-header {
