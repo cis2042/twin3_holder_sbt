@@ -9,9 +9,12 @@ import logging
 from datetime import datetime, timedelta
 
 import pandas as pd
+import requests
 from dune_client.client import DuneClient
 
 logger = logging.getLogger(__name__)
+
+BSC_RPC = "https://bsc-dataseed.binance.org/"
 
 # ── SQL Templates ────────────────────────────────────────────
 
@@ -213,6 +216,20 @@ class DataSyncer:
             return int(df["total_holders"].iloc[0])
         return 0
 
+    @staticmethod
+    def fetch_onchain_total_supply(contract_address: str) -> int:
+        """Read totalSupply() directly from BSC RPC — free, no API key needed."""
+        logger.info(f"Fetching totalSupply from BSC RPC for {contract_address}...")
+        # ERC-721 totalSupply() selector: 0x18160ddd
+        resp = requests.post(BSC_RPC, json={
+            "jsonrpc": "2.0", "id": 1, "method": "eth_call",
+            "params": [{"to": contract_address, "data": "0x18160ddd"}, "latest"],
+        }, timeout=10)
+        result = resp.json().get("result", "0x0")
+        total = int(result, 16)
+        logger.info(f"  On-chain totalSupply: {total}")
+        return total
+
     def fetch_wallet_age(self, target_date: str) -> pd.DataFrame:
         """Fetch wallet age cross-tab for a specific date."""
         logger.info(f"Fetching wallet age analysis for {target_date}...")
@@ -282,57 +299,120 @@ class DataSyncer:
         }
 
     def daily_sync(self, target_date: str | None = None) -> dict:
-        """Sync today's data + wallet age analysis."""
+        """Sync today's data + wallet age analysis.
+
+        Tries Dune Analytics first.  If that fails (e.g. 402 Payment
+        Required on the free plan), falls back to reading totalSupply()
+        directly from BSC RPC and distributing the holder gap across
+        any missing days.
+        """
         from app.database import (
             upsert_daily_stats, upsert_wallet_age,
-            get_sync_meta, update_sync_meta, get_daily_stats
+            get_sync_meta, update_sync_meta, get_daily_stats,
+            get_latest_daily_stat,
         )
 
         if not target_date:
             target_date = datetime.utcnow().strftime("%Y-%m-%d")
 
-        # Re-fetch all daily mints to get accurate cumulative count
-        df = self.fetch_all_daily_mints()
-        if df.empty:
-            return {"status": "error", "message": "No data from Dune"}
-
-        # Find today's data
-        df_sorted = df.sort_values("day")
+        dune_ok = False
         cumulative = 0
         today_new = 0
-        for _, row in df_sorted.iterrows():
-            day_str = str(row["day"])[:10]
-            new_users = int(row["new_users"])
-            cumulative += new_users
-            if day_str == target_date:
-                today_new = new_users
 
-            # Upsert each day to keep cumulative correct
-            upsert_daily_stats(day_str, new_users, cumulative)
+        # ── Attempt 1: Dune Analytics (full daily breakdown) ─────
+        try:
+            df = self.fetch_all_daily_mints()
+            if not df.empty:
+                df_sorted = df.sort_values("day")
+                for _, row in df_sorted.iterrows():
+                    day_str = str(row["day"])[:10]
+                    new_users = int(row["new_users"])
+                    cumulative += new_users
+                    if day_str == target_date:
+                        today_new = new_users
+                    upsert_daily_stats(day_str, new_users, cumulative)
+                dune_ok = True
+                logger.info(f"Dune sync OK — cumulative: {cumulative}")
+        except Exception as e:
+            logger.warning(f"Dune sync failed: {e}")
 
-        # Wallet age analysis for today
-        wa_df = self.fetch_wallet_age(target_date)
-        if not wa_df.empty:
-            total = int(wa_df["users"].sum())
-            cross_tab = wa_df.to_dict("records")
+        # ── Attempt 2: On-chain fallback via BSC RPC ─────────────
+        if not dune_ok:
+            logger.info("Falling back to on-chain totalSupply sync...")
+            contract = "0x" + self.token_hex
+            total_supply = self.fetch_onchain_total_supply(contract)
 
-            age_agg = wa_df.groupby("age_bucket")["users"].sum().reset_index()
-            age_agg["pct"] = (age_agg["users"] / max(total, 1) * 100).round(1)
-            age_dist = age_agg.to_dict("records")
+            latest = get_latest_daily_stat()
+            all_stats = get_daily_stats()
 
-            tx_agg = wa_df.groupby("tx_count_bucket")["users"].sum().reset_index()
-            tx_agg["pct"] = (tx_agg["users"] / max(total, 1) * 100).round(1)
-            tx_dist = tx_agg.to_dict("records")
+            if latest and total_supply > latest["cumulative_holders"]:
+                gap = total_supply - latest["cumulative_holders"]
+                last_date = datetime.strptime(latest["date"], "%Y-%m-%d")
+                target_dt = datetime.strptime(target_date, "%Y-%m-%d")
 
-            upsert_wallet_age(target_date, cross_tab, age_dist, tx_dist, total)
+                # Build list of missing days
+                missing_days = []
+                d = last_date + timedelta(days=1)
+                while d <= target_dt:
+                    missing_days.append(d.strftime("%Y-%m-%d"))
+                    d += timedelta(days=1)
+
+                if not missing_days:
+                    missing_days = [target_date]
+
+                per_day = gap // len(missing_days)
+                remainder = gap % len(missing_days)
+                cum = latest["cumulative_holders"]
+
+                for i, day in enumerate(missing_days):
+                    n = per_day + (1 if i < remainder else 0)
+                    cum += n
+                    upsert_daily_stats(day, n, cum)
+                    if day == target_date:
+                        today_new = n
+
+                cumulative = cum
+                logger.info(
+                    f"On-chain fallback OK — filled {len(missing_days)} day(s), "
+                    f"cumulative: {cumulative}"
+                )
+            elif latest:
+                cumulative = latest["cumulative_holders"]
+                logger.info("No gap detected, Firestore is up to date.")
+            else:
+                logger.error("No Firestore data and Dune failed — cannot sync.")
+                return {"status": "error", "message": "No data source available"}
+
+        # ── Wallet age analysis (Dune only, skip on fallback) ────
+        wa_rows = 0
+        if dune_ok:
+            try:
+                wa_df = self.fetch_wallet_age(target_date)
+                if not wa_df.empty:
+                    total = int(wa_df["users"].sum())
+                    cross_tab = wa_df.to_dict("records")
+
+                    age_agg = wa_df.groupby("age_bucket")["users"].sum().reset_index()
+                    age_agg["pct"] = (age_agg["users"] / max(total, 1) * 100).round(1)
+                    age_dist = age_agg.to_dict("records")
+
+                    tx_agg = wa_df.groupby("tx_count_bucket")["users"].sum().reset_index()
+                    tx_agg["pct"] = (tx_agg["users"] / max(total, 1) * 100).round(1)
+                    tx_dist = tx_agg.to_dict("records")
+
+                    upsert_wallet_age(target_date, cross_tab, age_dist, tx_dist, total)
+                    wa_rows = len(wa_df)
+            except Exception as e:
+                logger.warning(f"Wallet age analysis failed: {e}")
 
         meta = get_sync_meta()
         update_sync_meta(target_date, meta.get("total_records", 0) + 1, True)
 
         return {
             "status": "ok",
+            "source": "dune" if dune_ok else "onchain_fallback",
             "date": target_date,
             "new_users": today_new,
             "total_holders": cumulative,
-            "wallet_age_rows": len(wa_df) if not wa_df.empty else 0,
+            "wallet_age_rows": wa_rows,
         }

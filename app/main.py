@@ -9,7 +9,15 @@ Serves:
 
 import logging
 import os
-from datetime import datetime
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env from project root (one level up from app/)
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_env_path)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -35,6 +43,13 @@ TOKEN_CONTRACT = os.getenv("TOKEN_CONTRACT_ADDRESS", "0xe3ec133e29addfbba26a412c
 MINTER_ADDRESS = os.getenv("MINTER_ADDRESS", "0x344659F3Ef3c2D2A0cdF071ea13Fa87867777777")
 TIMEZONE = os.getenv("TIMEZONE", "UTC")
 SYNC_SECRET = os.getenv("SYNC_SECRET", "")  # Protect sync endpoints
+SYNC_INTERVAL_HOURS = int(os.getenv("SYNC_INTERVAL_HOURS", "4"))
+SYNC_INTERVAL_SEC = SYNC_INTERVAL_HOURS * 3600
+
+# Background scheduler state
+_sync_timer: threading.Timer | None = None
+_last_sync_time: datetime | None = None
+_next_sync_time: datetime | None = None
 
 # ── Static files ─────────────────────────────────────────────
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -384,5 +399,78 @@ async def api_ga_backfill(request: Request, days: int = 90):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/api/sync/status")
+async def sync_status():
+    """Return the next scheduled auto-sync time."""
+    return {
+        "status": "ok",
+        "interval_hours": SYNC_INTERVAL_HOURS,
+        "last_sync": _last_sync_time.isoformat() if _last_sync_time else None,
+        "next_sync": _next_sync_time.isoformat() if _next_sync_time else None,
+    }
+
+
+# ── Background Auto-Sync Scheduler ─────────────────────────────
+
+def _run_background_sync():
+    """Run data sync in a background thread. Reschedules itself."""
+    global _sync_timer, _last_sync_time, _next_sync_time
+    logger.info("=== Background auto-sync starting ===")
+
+    try:
+        from app.data_sync import DataSyncer
+        syncer = DataSyncer(
+            DUNE_API_KEY or "", TOKEN_CONTRACT, MINTER_ADDRESS, TIMEZONE
+        )
+        result = syncer.daily_sync()
+        logger.info(f"Background sync (chain): {result}")
+
+        try:
+            from app.ga_sync import GASyncer
+            ga = GASyncer()
+            ga_result = ga.sync_daily()
+            logger.info(f"Background sync (GA): {ga_result}")
+        except Exception as e:
+            logger.warning(f"Background GA sync failed: {e}")
+
+        _last_sync_time = datetime.now(timezone.utc)
+        logger.info(f"=== Background auto-sync complete at {_last_sync_time.isoformat()} ===")
+    except Exception as e:
+        logger.error(f"Background sync failed: {e}")
+
+    _next_sync_time = datetime.fromtimestamp(
+        datetime.now(timezone.utc).timestamp() + SYNC_INTERVAL_SEC, tz=timezone.utc
+    )
+    _sync_timer = threading.Timer(SYNC_INTERVAL_SEC, _run_background_sync)
+    _sync_timer.daemon = True
+    _sync_timer.start()
+    logger.info(f"Next auto-sync scheduled at {_next_sync_time.isoformat()}")
+
+
+@app.on_event("startup")
+async def start_background_sync():
+    """Start the background sync scheduler on app startup."""
+    global _sync_timer, _next_sync_time
+    _next_sync_time = datetime.fromtimestamp(
+        datetime.now(timezone.utc).timestamp() + 30, tz=timezone.utc
+    )
+    _sync_timer = threading.Timer(30, _run_background_sync)
+    _sync_timer.daemon = True
+    _sync_timer.start()
+    logger.info(
+        f"Background auto-sync scheduler started "
+        f"(every {SYNC_INTERVAL_HOURS}h, first run in 30s)"
+    )
+
+
+@app.on_event("shutdown")
+async def stop_background_sync():
+    """Cancel the background sync timer on shutdown."""
+    global _sync_timer
+    if _sync_timer:
+        _sync_timer.cancel()
+        logger.info("Background auto-sync scheduler stopped")
 

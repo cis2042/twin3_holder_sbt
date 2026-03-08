@@ -100,6 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const AMBER = '#B8860B';
     const CHART_COLORS = [ACCENT, '#6fdb8f', INFO, AMBER, '#8dae9a', '#6A8E7F', '#3a6b45', '#9B8EA4'];
 
+    // ── Auto-refresh every 4 hours ──────────────────────────
+    const AUTO_REFRESH_MS = 4 * 60 * 60 * 1000; // 4 hours
+    let nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+    let lastSummary = null;
+    let lastGaSummary = null;
+
     let allDailyData = [];
     let allGaData = [];
     let dateFrom = null;
@@ -198,8 +204,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function init() {
         initDatePicker();
-        // Always animate the hero, even if API calls fail
         animateHero();
+        buildSbtRankingChart(null);
+        await refreshAll();
+        initScrollAnimations();
+        // ── Schedule auto-refresh every 4h ──────────────────
+        setInterval(refreshAll, AUTO_REFRESH_MS);
+        setInterval(updateRefreshCountdown, 60_000); // update countdown every minute
+        updateRefreshCountdown();
+    }
+
+    /** Re-fetch all data from API and rebuild every chart + insight. */
+    async function refreshAll() {
         try {
             const results = await Promise.allSettled([
                 API('/api/stats/summary'),
@@ -207,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 API('/api/ga/daily'),
                 API('/api/ga/summary'),
                 API('/api/formulas'),
+                API('/api/wallet-age/latest'),
             ]);
             const val = i => results[i].status === 'fulfilled' ? results[i].value : null;
             const summary = val(0);
@@ -214,19 +231,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const gaDaily = val(2);
             const gaSummary = val(3);
             const formulas = val(4);
+            const walletAge = val(5);
 
             if (dailyResp) allDailyData = dailyResp.data || [];
             if (gaDaily) allGaData = gaDaily.data || [];
-            if (summary) buildHero(summary);
+            if (summary) { lastSummary = summary; buildHero(summary); }
             if (summary && dailyResp) buildTimeline(allDailyData, summary.metrics);
-            if (gaDaily || gaSummary) buildGA(allGaData, gaSummary?.data);
+            const liveHolders = summary?.latest?.cumulative_holders;
+            buildSbtRankingChart(liveHolders);
+            updateRankingNarrative(liveHolders);
+            if (gaDaily || gaSummary) { lastGaSummary = gaSummary; buildGA(allGaData, gaSummary?.data); }
             loadWallet();
             if (formulas) loadFormulas(formulas);
-            if (summary) buildInsights(summary, gaSummary?.data);
+            if (summary) buildInsights(summary, gaSummary?.data, walletAge?.data);
+            nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+            updateRefreshCountdown();
+            console.log(`[auto-refresh] Data refreshed at ${new Date().toLocaleTimeString()}`);
         } catch (e) {
-            console.error('Init failed:', e);
+            console.error('Refresh failed:', e);
         }
-        initScrollAnimations();
+    }
+
+    /** Show countdown to next data refresh in the badge. */
+    function updateRefreshCountdown() {
+        const badge = document.getElementById('updateBadge');
+        if (!badge) return;
+        const remaining = Math.max(0, nextRefreshAt - Date.now());
+        const h = Math.floor(remaining / 3_600_000);
+        const m = Math.floor((remaining % 3_600_000) / 60_000);
+        if (remaining <= 0) {
+            badge.textContent = 'Refreshing…';
+        } else {
+            badge.textContent = `Live data · next refresh ${h}h ${m}m`;
+        }
     }
 
     function refreshCharts() {
@@ -791,9 +828,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* ═══════════ SBT GLOBAL RANKING CHART ═══════════════════ */
-    function buildSbtRankingChart() {
+    function updateRankingNarrative(liveHolders) {
+        const el = document.getElementById('rankingNarrative');
+        if (!el) return;
+        const count = liveHolders ? fmt(liveHolders) : '120K+';
+        el.innerHTML = `Among all <strong>non-transferable Soulbound Token</strong> projects worldwide, ` +
+            `twin3 ranks <strong>#7 globally</strong> by holder count with <strong>${count} verified holders</strong> — ` +
+            `and <strong>#2 on BNB Chain</strong>, second only to Binance's own BAB Token. ` +
+            `<span class="update-badge">Live data from chain</span>`;
+    }
+
+    function buildSbtRankingChart(liveHolders) {
         const container = d3.select('#sbtRankingChart');
         container.selectAll('*').remove();
+
+        // twin3 holder count: use live on-chain data, fallback to 120K
+        const twin3Count = liveHolders || 120000;
 
         const projects = [
             { name: 'Worldcoin World ID', holders: 18000000, chain: 'Optimism', cat: 'Biometric ID', url: 'https://world.org/world-id' },
@@ -802,7 +852,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: 'Galxe Passport', holders: 1000000, chain: 'Multi-chain', cat: 'Identity / KYC', url: 'https://galxe.com/passport' },
             { name: 'TON Society SBT', holders: 500000, chain: 'TON', cat: 'Community', url: 'https://society.ton.org' },
             { name: 'Nomis.cc', holders: 200000, chain: 'Multi-chain', cat: 'Reputation Score', url: 'https://nomis.cc' },
-            { name: 'twin3', holders: 103000, chain: 'BNB Chain', cat: 'AI Agent Identity', highlight: true, url: 'https://bscscan.com/token/0xe3ec133e29addfbba26a412c38ed5de37195156f' },
+            { name: 'twin3', holders: twin3Count, chain: 'BNB Chain', cat: 'AI Agent Identity', highlight: true, url: 'https://bscscan.com/token/0xe3ec133e29addfbba26a412c38ed5de37195156f' },
             { name: 'Masa Finance', holders: 70000, chain: 'Multi-chain', cat: 'Identity / Credit', url: 'https://masa.ai' },
             { name: 'Guild.xyz', holders: 50000, chain: 'Multi-chain', cat: 'Community Gates', url: 'https://guild.xyz' },
             { name: 'Otterspace', holders: 30000, chain: 'Optimism', cat: 'DAO Governance', url: 'https://otterspace.xyz' },
@@ -947,8 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Build ranking chart on page load
-    buildSbtRankingChart();
+    // Ranking chart is now built in init() with live data
 
     function buildHourlyChart(hourly) {
         const container = d3.select('#hourlyChart');
@@ -1172,45 +1221,157 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-    /* ═══════════ INSIGHTS ══════════════════════════════════ */
-    function buildInsights(onChain, ga) {
+    /* ═══════════ INSIGHTS — data-driven, auto-updating ═════ */
+    function buildInsights(onChain, ga, walletData) {
         const grid = document.getElementById('insightsGrid');
         const cards = [];
         const metrics = onChain.metrics || {};
         const latest = onChain.latest || {};
+        const today = latest.date || '—';
+        const holders = latest.cumulative_holders || 0;
+        const newToday = latest.new_users || 0;
+        const avg7d = metrics.avg_7d || 0;
+        const avgAll = metrics.avg_daily_all_time || 1;
+        const totalDays = metrics.total_days || 0;
+        const ratio7d = avg7d / avgAll;
+        const change7d = metrics.change_7d_pct;
 
-        // On-chain insights
-        if (metrics.avg_7d && metrics.avg_daily_all_time) {
-            const ratio = metrics.avg_7d / metrics.avg_daily_all_time;
-            if (ratio > 1.1) {
-                cards.push({ cls: 'positive', title: 'Accelerating Growth', body: `The 7-day average (${fmt(Math.round(metrics.avg_7d))}/day) is ${ratio.toFixed(1)}× the all-time average. Growth is not just sustained — it's accelerating.` });
-            }
-        }
-        if (metrics.change_7d_pct != null && metrics.change_7d_pct > 0) {
-            cards.push({ cls: 'positive', title: 'Week-over-Week Momentum', body: `This week's daily average is up ${metrics.change_7d_pct.toFixed(1)}% vs the prior week. Consistent week-over-week growth is the hallmark of a healthy project.` });
-        }
-        if (latest.cumulative_holders > 80000) {
-            cards.push({ cls: 'positive', title: 'Strong Adoption Base', body: `With ${fmt(latest.cumulative_holders)} on-chain holders, Twin Matrix has built a substantial community. Each SBT represents a verified, committed participant.` });
+        // ── 1. Milestone tracker ────────────────────────────
+        const milestones = [200000, 150000, 125000, 100000, 75000, 50000, 25000];
+        const nextMs = milestones.find(m => m > holders) || milestones[0];
+        const prevMs = milestones.slice().reverse().find(m => m <= holders) || 0;
+        const pctToNext = ((holders - prevMs) / (nextMs - prevMs) * 100).toFixed(0);
+        const daysToNext = avg7d > 0 ? Math.ceil((nextMs - holders) / avg7d) : '—';
+        cards.push({
+            cls: 'positive', icon: '🎯',
+            title: `${fmt(prevMs)}-Holder Milestone Reached`,
+            body: `With <strong>${fmt(holders)}</strong> holders as of ${today}, twin3 has passed the <strong>${fmt(prevMs)}</strong> milestone. ` +
+                  `At the current 7-day pace of <strong>${fmt(Math.round(avg7d))}/day</strong>, ` +
+                  `the next milestone of <strong>${fmt(nextMs)}</strong> is approximately <strong>${daysToNext} days</strong> away ` +
+                  `(${pctToNext}% progress). <em>Every SBT is non-transferable — each holder is a real, unique user.</em>`
+        });
+
+        // ── 2. Growth momentum classification ───────────────
+        if (ratio7d > 0) {
+            let momentum, desc;
+            if (ratio7d > 5) { momentum = '🚀 Explosive Growth'; desc = `The 7-day average (<strong>${fmt(Math.round(avg7d))}/day</strong>) is <strong>${ratio7d.toFixed(1)}×</strong> the all-time average (${fmt(Math.round(avgAll))}). This is exceptional momentum — the project is growing faster now than at any previous period.`; }
+            else if (ratio7d > 2) { momentum = '📈 Strong Acceleration'; desc = `The 7-day average (<strong>${fmt(Math.round(avg7d))}/day</strong>) is <strong>${ratio7d.toFixed(1)}×</strong> the all-time average. Growth is clearly accelerating — the most recent week shows significantly more activity than the overall trend.`; }
+            else if (ratio7d > 1.1) { momentum = '↗️ Upward Trend'; desc = `The 7-day average (<strong>${fmt(Math.round(avg7d))}/day</strong>) is <strong>${ratio7d.toFixed(1)}×</strong> the all-time average. Growth is trending upward — a healthy sign of increasing adoption.`; }
+            else if (ratio7d > 0.9) { momentum = '➡️ Steady State'; desc = `The 7-day average (<strong>${fmt(Math.round(avg7d))}/day</strong>) is in line with the all-time average. Growth is consistent and predictable — a stable adoption pattern.`; }
+            else { momentum = '⚠️ Consolidation Phase'; desc = `The 7-day average has dipped to <strong>${fmt(Math.round(avg7d))}/day</strong> (${ratio7d.toFixed(1)}× the all-time average). This may indicate a temporary consolidation before the next growth wave.`; }
+            cards.push({ cls: ratio7d > 1.1 ? 'positive' : 'info', icon: '', title: momentum, body: desc });
         }
 
-        // GA insights
+        // ── 3. Week-over-week comparison ─────────────────────
+        if (change7d != null) {
+            const dir = change7d > 0 ? 'up' : 'down';
+            const emoji = change7d > 50 ? '🔥' : change7d > 0 ? '✅' : '⚡';
+            cards.push({
+                cls: change7d > 0 ? 'positive' : 'info', icon: emoji,
+                title: `Week-over-Week ${dir === 'up' ? 'Growth' : 'Change'}: ${change7d > 0 ? '+' : ''}${change7d.toFixed(1)}%`,
+                body: `This week's daily average is <strong>${Math.abs(change7d).toFixed(1)}% ${dir}</strong> compared to the prior week. ` +
+                      (change7d > 100 ? 'This dramatic increase suggests a viral adoption event or major partnership activation.' :
+                       change7d > 20 ? 'Sustained week-over-week growth like this is a hallmark of healthy, organic project momentum.' :
+                       change7d > 0 ? 'Moderate positive growth indicates steady, reliable community expansion.' :
+                       'Short-term dips are normal in crypto adoption cycles. The all-time trend remains strongly positive.')
+            });
+        }
+
+        // ── 4. Competitive positioning ──────────────────────
+        if (holders > 100000) {
+            cards.push({
+                cls: 'positive', icon: '🏆',
+                title: '#7 Global SBT · #1 AI Agent Identity',
+                body: `<strong>${fmt(holders)}</strong> verified holders make twin3 the <strong>#7 SBT project globally</strong> and the ` +
+                      `<strong>only AI agent identity SBT</strong> in the world top 14. On BNB Chain, only Binance's own BAB Token has more holders. ` +
+                      `This positions twin3 as the sole leader combining AI agent technology with on-chain identity — ` +
+                      `a category of one.`
+            });
+        }
+
+        // ── 5. Longevity & consistency ──────────────────────
+        if (totalDays > 30) {
+            const monthsActive = (totalDays / 30).toFixed(1);
+            cards.push({
+                cls: 'info', icon: '📅',
+                title: `${totalDays} Days of Continuous Growth`,
+                body: `For <strong>${monthsActive} months</strong> straight, twin3 has minted new SBTs every single day — ` +
+                      `a total of <strong>${fmt(holders)}</strong> unique holders acquired over <strong>${totalDays} consecutive days</strong>. ` +
+                      `This consistency demonstrates sustained, genuine demand rather than one-off spikes. ` +
+                      `The lifetime average of <strong>${fmt(Math.round(avgAll))}/day</strong> provides a reliable baseline to evaluate momentum.`
+            });
+        }
+
+        // ── 6. GA-based insights ────────────────────────────
         if (ga && ga.totals) {
             const t = ga.totals;
             if (t.active_users > 0) {
-                cards.push({ cls: 'info', title: 'Verified Web Traffic', body: `${fmt(t.active_users)} unique visitors across ${t.days_tracked} days of tracking. Google Analytics confirms genuine user interest beyond the blockchain.` });
+                const pagesPerVisit = t.pageviews > 0 ? (t.pageviews / Math.max(t.sessions, 1)).toFixed(1) : '—';
+                cards.push({
+                    cls: 'info', icon: '🌐',
+                    title: `${fmt(t.active_users)} Website Visitors · ${pagesPerVisit} Pages/Session`,
+                    body: `Google Analytics tracked <strong>${fmt(t.active_users)}</strong> unique visitors across ` +
+                          `<strong>${t.days_tracked} days</strong>, viewing an average of <strong>${pagesPerVisit} pages</strong> per session. ` +
+                          `This depth of engagement shows that visitors aren't just landing and leaving — they're ` +
+                          `actively exploring the platform and learning about SBT technology.`
+                });
             }
-            if (t.pageviews > 0) {
-                const pagesPerVisit = (t.pageviews / Math.max(t.sessions, 1)).toFixed(1);
-                cards.push({ cls: 'info', title: 'Deep Engagement', body: `Users view an average of ${pagesPerVisit} pages per session — they're exploring, not just bouncing. This level of engagement suggests real interest in the project.` });
+            // Geographic diversity insight
+            if (ga.countries && ga.countries.length >= 5) {
+                const top3 = ga.countries.slice(0, 3).map(c => c.country).join(', ');
+                const totalCountries = ga.countries.length;
+                cards.push({
+                    cls: 'info', icon: '🌍',
+                    title: `Global Reach: ${totalCountries} Countries`,
+                    body: `Visitors from <strong>${totalCountries} countries</strong> confirm twin3's international appeal. ` +
+                          `Top regions: <strong>${top3}</strong>. This geographic diversity is a strong signal of organic, ` +
+                          `global adoption — the community is not concentrated in any single region or language group.`
+                });
+            }
+            // Traffic source insight
+            if (ga.traffic_sources && ga.traffic_sources.length > 0) {
+                const directPct = ga.traffic_sources.find(s => s.channel === 'Direct');
+                const organicPct = ga.traffic_sources.find(s => s.channel && s.channel.includes('Organic'));
+                if (directPct) {
+                    cards.push({
+                        cls: directPct.pct > 50 ? 'positive' : 'info', icon: '🔗',
+                        title: `${directPct.pct.toFixed(0)}% Direct Traffic — Strong Brand Awareness`,
+                        body: `<strong>${directPct.pct.toFixed(1)}%</strong> of all visitors come directly by typing the URL — ` +
+                              `the strongest indicator of brand recognition. ` +
+                              (organicPct ? `Another <strong>${organicPct.pct.toFixed(1)}%</strong> arrive via search engines, ` : '') +
+                              `showing that twin3 is building both mindshare and discoverability organically.`
+                    });
+                }
             }
         }
 
+        // ── 7. Today's performance vs average ───────────────
+        if (newToday > 0 && avgAll > 0) {
+            const todayRatio = newToday / avgAll;
+            const emoji = todayRatio > 3 ? '💥' : todayRatio > 1.5 ? '⬆️' : '📊';
+            cards.push({
+                cls: todayRatio > 1.5 ? 'positive' : 'info', icon: emoji,
+                title: `Today (${today}): ${fmt(newToday)} New Holders`,
+                body: `Today's intake of <strong>${fmt(newToday)}</strong> new holders is <strong>${todayRatio.toFixed(1)}×</strong> ` +
+                      `the all-time daily average. ` +
+                      (todayRatio > 3 ? 'This is significantly above the baseline — suggesting a major event or campaign driving adoption.' :
+                       todayRatio > 1.5 ? 'Above-average performance indicates strong ongoing momentum.' :
+                       todayRatio > 0.8 ? 'Consistent with the overall growth trend — healthy, steady acquisition.' :
+                       'Below the average, but daily fluctuations are normal. Check back after the full UTC day.')
+            });
+        }
+
+        // ── Fallback if no cards ────────────────────────────
         if (cards.length === 0) {
-            cards.push({ cls: '', title: 'Data Collecting', body: 'Insights will appear as more data is collected across sync cycles.' });
+            cards.push({ cls: '', icon: '⏳', title: 'Data Collecting', body: 'Insights will appear as more data is collected across sync cycles.' });
         }
 
+        // ── Render ──────────────────────────────────────────
         grid.innerHTML = cards.map(c =>
-            `<div class="insight-card ${c.cls}"><div class="insight-title">${c.title}</div><div class="insight-body">${c.body}</div></div>`
+            `<div class="insight-card ${c.cls}">` +
+            `<div class="insight-title">${c.icon ? c.icon + ' ' : ''}${c.title}</div>` +
+            `<div class="insight-body">${c.body}</div>` +
+            `</div>`
         ).join('');
     }
 

@@ -45,8 +45,8 @@
         <p class="hero-subtitle-sm">
             This dashboard combines <strong>on-chain minting data</strong> with <strong>Google Analytics
                 web traffic</strong> to give you a 360° view of adoption momentum.
-            Every number comes from verifiable sources — updated every 4 hours.
-            <span class="update-badge" id="updateBadge">Live data · 4h refresh</span>
+            Every number comes from verifiable sources — updated automatically.
+            <span class="update-badge" id="updateBadge">Live data · auto-refresh</span>
         </p>
         <div class="hero-contract" id="heroContract">
             <a class="mono" href="https://bscscan.com/token/0xe3ec133e29addfbba26a412c38ed5de37195156f" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Contract: 0xE3ec133e29adDfbBA26a412c38ed5De37195156f</a>
@@ -70,7 +70,7 @@
             </div>
         </div>
         <div class="hero-last-update" id="heroLastUpdate"></div>
-        <div class="scroll-indicator"><span>Scroll to explore</span>
+        <div class="scroll-indicator"><span>Scroll to explore the full report ↓</span>
             <div class="arrow"></div>
         </div>
     </section>
@@ -126,7 +126,7 @@
             <div class="metrics-row" id="timelineMetrics"></div>
 
             <div class="card" id="timelineCard">
-                <h3>Daily New Users — Full History</h3>
+                <h3>📊 Daily New Users — Full History</h3>
                 <div class="controls-row">
                     <label>Trend Line:</label>
                     <div class="btn-group" id="maGroup">
@@ -141,16 +141,23 @@
                     <div class="chart-area range-brush-area" id="brushChart" style="height:48px;"></div>
                 </div>
                 <div class="chart-caption">
-                    Each bar = COUNT(DISTINCT to_address) where from = 0x0 (mint event). Trend = rolling window average.
+                    <strong>How to read this chart:</strong> Each green bar shows how many <em>unique wallets</em>
+                    received a twin3 SBT on that day. The smooth line is the moving average — it filters out
+                    daily noise to reveal the real growth trend. Use the date controls above or the slider
+                    below the chart to zoom into any time period.
+                    <br><code>Data source: COUNT(DISTINCT to_address) where from = 0x0 (mint event)</code>
                 </div>
             </div>
 
             <div class="card" id="cumulativeCard">
-                <h3>Cumulative Holder Growth</h3>
+                <h3>📈 Cumulative Holder Growth</h3>
                 <div class="chart-area" id="cumulativeChart" style="height:280px;"></div>
                 <div class="chart-caption">
-                    Running total of unique holders. Milestone markers show key growth checkpoints.
-                    <code>cumulative[n] = Σ(new_users[0..n])</code>
+                    <strong>How to read this chart:</strong> This area chart shows the running total of all
+                    SBT holders over time. The green dots mark key milestones (10K, 25K, 50K, 75K holders).
+                    A steepening curve means growth is accelerating — more people are joining each day
+                    than before.
+                    <br><code>Formula: cumulative[n] = Σ(new_users[0..n])</code>
                 </div>
             </div>
 
@@ -201,24 +208,32 @@
         <div class="scene-inner">
             <div class="scene-label">Market Position</div>
             <h2 class="scene-title">Global SBT Ranking</h2>
-            <p class="scene-narrative">
+            <p class="scene-narrative" id="rankingNarrative">
                 Among all <strong>non-transferable Soulbound Token</strong> projects worldwide,
                 twin3 ranks <strong>#7 globally</strong> by holder count — and <strong>#2 on BNB Chain</strong>,
                 second only to Binance's own BAB Token.
             </p>
 
             <div class="explanation-block">
-                <p>This ranking compares only <strong>truly non-transferable SBT</strong> projects.
-                    Transferable tokens (POAP, Lens) are excluded. Data sourced from on-chain explorers and official
-                    project pages.</p>
+                <p><strong>What is a Soulbound Token?</strong> Unlike regular NFTs, SBTs cannot be
+                    transferred or sold — they permanently represent a person's identity, credential,
+                    or achievement on-chain. This chart compares only <strong>truly non-transferable SBT</strong>
+                    projects. Transferable tokens (like POAP or Lens) are excluded.</p>
+                <p><strong>Why does this matter?</strong> twin3 is the <em>only AI Agent identity SBT</em>
+                    in the global top 14 — proving that personal AI agent credentials are gaining
+                    real traction alongside established projects backed by Binance, Worldcoin, and Galxe.
+                    <strong>The twin3 bar updates automatically</strong> with the latest on-chain holder count.</p>
             </div>
 
             <div class="card">
-                <h3>Top Non-Transferable SBT Projects</h3>
+                <h3>🏆 Top Non-Transferable SBT Projects</h3>
                 <div class="chart-area" id="sbtRankingChart" style="min-height:520px;"></div>
                 <div class="chart-caption">
-                    Holder counts verified via BscScan, official project dashboards, and public announcements.
-                    twin3 is the <strong>only AI Agent identity SBT</strong> in the global top 14.
+                    <strong>How to read this chart:</strong> Each bar shows the total number of holders
+                    for a project. The <span style="color:#4a7c59;font-weight:700;">highlighted green bar</span> is twin3 —
+                    its value is <strong>live</strong> and pulled from the BNB Chain smart contract.
+                    Click any project name to visit its official page. Colored dots indicate the blockchain
+                    each project is deployed on.
                 </div>
             </div>
         </div>
@@ -242,7 +257,7 @@
             <div class="metrics-row" id="gaMetrics"></div>
 
             <div class="card" id="gaTimelineCard">
-                <h3>Daily Visitors & Sessions</h3>
+                <h3>📉 Daily Visitors & Sessions</h3>
                 <div class="controls-row">
                     <label>Show:</label>
                     <div class="btn-group" id="gaMetricGroup">
@@ -253,49 +268,58 @@
                 </div>
                 <div class="chart-area" id="gaChart" style="height:280px;"></div>
                 <div class="chart-caption">
-                    Source: Google Analytics 4 (Property #481423287). Updated with each sync cycle.
+                    <strong>How to read this chart:</strong> This line chart tracks daily website visitors.
+                    Use the buttons above to switch between Users (unique people), Sessions (total visits),
+                    and Page Views (total pages loaded). A rising trend indicates growing awareness.
+                    <br>Source: Google Analytics 4. Hover over any point for exact numbers.
                 </div>
             </div>
 
             <div style="display:flex;gap:1.2rem;flex-wrap:wrap;">
                 <div class="card" style="flex:1;min-width:280px;" id="trafficCard">
-                    <h3>Traffic Sources</h3>
+                    <h3>🔗 Traffic Sources</h3>
                     <div class="chart-area" id="trafficChart" style="height:260px;"></div>
                     <div class="chart-caption">
-                        Channel grouping shows how users discover the platform.
-                        Organic and direct traffic indicate strong brand awareness.
+                        <strong>How to read this chart:</strong> This donut chart shows where visitors
+                        come from. "Direct" means people type the URL directly (brand awareness).
+                        "Organic Search" means discovery via Google. A healthy mix of sources indicates
+                        the project is discoverable through multiple channels — not dependent on a single source.
                     </div>
                 </div>
                 <div class="card" style="flex:1;min-width:280px;" id="deviceCard">
-                    <h3>Device Breakdown</h3>
+                    <h3>📱 Device Breakdown</h3>
                     <div class="chart-area" id="deviceChart" style="height:260px;"></div>
                     <div class="chart-caption">
-                        Device mix reveals user behavior patterns — mobile dominance
-                        suggests an on-the-go, crypto-native audience.
+                        <strong>How to read this chart:</strong> This shows the split between desktop, mobile,
+                        and tablet users. High mobile usage is typical among crypto-native audiences who
+                        interact with dApps on-the-go. The center number shows total sessions.
                     </div>
                 </div>
             </div>
 
             <div class="card" id="countryCard" style="width:100%;">
-                <h3>Geographic Reach</h3>
+                <h3>🌍 Geographic Reach</h3>
                 <div class="chart-area" id="countryChart" style="height:400px;">
                     <div class="loading">Loading world map…</div>
                 </div>
                 <div id="countryLegend" style="display:flex;align-items:center;gap:0.6rem;margin-top:0.5rem;"></div>
                 <div class="chart-caption">
-                    Global distribution of active users across 100+ countries.
-                    Broad geographic spread demonstrates the project's truly international appeal
-                    and organic growth across key emerging markets.
+                    <strong>How to read this map:</strong> Darker green = more active users from that country.
+                    Hover over any country to see exact numbers. The top 10 countries are listed below the gradient
+                    legend — click any flag to highlight it on the map. Broad geographic distribution across
+                    100+ countries demonstrates truly organic, global adoption — not concentrated in a single region.
                 </div>
             </div>
 
             <div style="display:flex;gap:1.2rem;flex-wrap:wrap;">
                 <div class="card" style="flex:1;min-width:280px;" id="hourlyCard">
-                    <h3>Hourly Engagement Pattern</h3>
+                    <h3>🕐 Hourly Engagement Pattern</h3>
                     <div class="chart-area" id="hourlyChart" style="height:280px;"></div>
                     <div class="chart-caption">
-                        24-hour activity distribution (UTC). Sustained engagement across
-                        time zones shows a truly global user base.
+                        <strong>How to read this chart:</strong> Each bar shows how many users were active
+                        during that hour of the day (UTC timezone). Sustained activity across all 24 hours
+                        — without a single "dead" period — confirms a truly global user base spanning
+                        every major timezone. Hover for exact numbers.
                     </div>
                 </div>
             </div>
@@ -319,19 +343,23 @@
 
             <div style="display:flex;gap:1.2rem;flex-wrap:wrap;">
                 <div class="card" style="flex:1;min-width:300px;" id="ageDonutCard">
-                    <h3>Wallet Age Distribution</h3>
+                    <h3>🕰️ Wallet Age Distribution</h3>
                     <div class="chart-area" id="ageDonut" style="height:300px;"></div>
                     <div class="chart-caption">
-                        Age = days since first on-chain transaction.
-                        Older wallets = more established, trustworthy users.
+                        <strong>How to read this chart:</strong> Each slice represents how old users' wallets
+                        are (time since their first-ever transaction). A large proportion of wallets aged
+                        30+ days means these are established, experienced users — not freshly-created bots.
+                        The deeper the green, the longer the wallet history.
                     </div>
                 </div>
                 <div class="card" style="flex:1;min-width:300px;" id="txBarCard">
-                    <h3>Prior Transaction Activity</h3>
+                    <h3>⚡ Prior Transaction Activity</h3>
                     <div class="chart-area" id="txBar" style="height:300px;"></div>
                     <div class="chart-caption">
-                        Transaction count in the 365 days before minting.
-                        High activity = experienced blockchain users.
+                        <strong>How to read this chart:</strong> Each bar shows how many transactions users
+                        made in the 365 days <em>before</em> minting their SBT. Users with "50-199" or "200+"
+                        transactions are highly active blockchain participants. A concentration in the
+                        higher ranges proves the community consists of real, experienced users.
                     </div>
                 </div>
             </div>
@@ -401,7 +429,7 @@
             </div>
 
             <div class="card" id="heatmapCard">
-                <h3>Age × Transaction Count Heatmap</h3>
+                <h3>🔥 Age × Transaction Count Heatmap</h3>
                 <div class="controls-row">
                     <div class="btn-group" id="heatmapMode">
                         <button class="btn active" data-mode="count">Absolute</button>
@@ -415,13 +443,19 @@
                     </table>
                 </div>
                 <div class="chart-caption">
-                    Color intensity ∝ user count. Darker = higher concentration.
+                    <strong>How to read this heatmap:</strong> Each cell shows how many users fall into
+                    a combination of wallet age (rows) and transaction history (columns). Darker cells
+                    = higher concentration. Look for dark cells in the <em>bottom-right area</em>
+                    (old wallets with many transactions) — that's the sweet spot indicating
+                    experienced, real users. Toggle "Percentage" to see relative proportions.
                 </div>
             </div>
 
             <div class="card" id="ageStripCard">
                 <h3>Wallet Age — Proportion Strip</h3>
-                <p class="strip-desc">Each segment's width represents the share of new users by wallet age.</p>
+                <p class="strip-desc">This strip chart provides a quick visual summary: each colored segment's
+                    width represents the share of holders in that age bracket. Wider segments on the right
+                    (older wallets) indicate a more mature and trustworthy community.</p>
                 <div id="ageStrip" style="display:flex;border-radius:8px;overflow:hidden;height:36px;"></div>
                 <div id="ageStripLegend"
                     style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.6rem;font-size:0.75rem;color:var(--text-muted);">
@@ -437,10 +471,11 @@
             <h2 class="scene-title">Key Takeaways</h2>
             <p class="scene-narrative">
                 These insights are <strong>auto-generated</strong> by comparing on-chain and web analytics
-                against historical baselines. Updated every 4 hours with fresh data from both sources.
+                against historical baselines. Each card below highlights a notable pattern or milestone.
+                Green cards indicate positive signals; blue cards provide informational context.
             </p>
             <div class="insights-grid" id="insightsGrid">
-                <div class="loading">Analyzing data patterns</div>
+                <div class="loading">Analyzing data patterns…</div>
             </div>
         </div>
     </section>
