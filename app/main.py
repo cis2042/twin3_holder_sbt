@@ -636,10 +636,17 @@ async def sync_status():
 # ── Background Auto-Sync Scheduler ─────────────────────────────
 
 def _run_background_sync():
-    """Run data sync in a background thread. Reschedules itself."""
+    """Run data sync in a background thread. Reschedules itself.
+
+    Uses Dune Analytics first, falls back to BSC RPC on-chain read if
+    Dune is unavailable (e.g. 402 Payment Required on free plan).
+    Records _last_sync_time regardless of which source succeeds.
+    """
     global _sync_timer, _last_sync_time, _next_sync_time
     logger.info("=== Background auto-sync starting ===")
+    sync_ok = False
 
+    # ── Chain sync (Dune → BSC RPC fallback) ─────────────────
     try:
         from app.data_sync import DataSyncer
         syncer = DataSyncer(
@@ -647,19 +654,25 @@ def _run_background_sync():
         )
         result = syncer.daily_sync()
         logger.info(f"Background sync (chain): {result}")
-
-        try:
-            from app.ga_sync import GASyncer
-            ga = GASyncer()
-            ga_result = ga.sync_daily()
-            logger.info(f"Background sync (GA): {ga_result}")
-        except Exception as e:
-            logger.warning(f"Background GA sync failed: {e}")
-
-        _last_sync_time = datetime.now(timezone.utc)
-        logger.info(f"=== Background auto-sync complete at {_last_sync_time.isoformat()} ===")
+        sync_ok = result.get("status") == "ok"
     except Exception as e:
-        logger.error(f"Background sync failed: {e}")
+        logger.error(f"Background chain sync failed unexpectedly: {e}")
+
+    # ── GA sync (best-effort, never blocks chain sync) ────────
+    try:
+        from app.ga_sync import GASyncer
+        ga = GASyncer()
+        ga_result = ga.sync_daily()
+        logger.info(f"Background sync (GA): {ga_result}")
+    except Exception as e:
+        logger.warning(f"Background GA sync failed: {e}")
+
+    # ── Record last sync time regardless of Dune vs BSC source ─
+    _last_sync_time = datetime.now(timezone.utc)
+    logger.info(
+        f"=== Background auto-sync {'complete' if sync_ok else 'partial'} "
+        f"at {_last_sync_time.isoformat()} ==="
+    )
 
     _next_sync_time = datetime.fromtimestamp(
         datetime.now(timezone.utc).timestamp() + SYNC_INTERVAL_SEC, tz=timezone.utc
@@ -668,6 +681,25 @@ def _run_background_sync():
     _sync_timer.daemon = True
     _sync_timer.start()
     logger.info(f"Next auto-sync scheduled at {_next_sync_time.isoformat()}")
+
+
+def _ensure_scheduler_alive():
+    """Restart the background scheduler if Cloud Run killed it (scale-to-zero).
+
+    Cloud Run may terminate idle instances, destroying threading.Timer.
+    This function is called on each request to re-arm the timer if needed.
+    """
+    global _sync_timer, _next_sync_time
+    now = datetime.now(timezone.utc)
+    already_overdue = _next_sync_time is not None and now > _next_sync_time
+    timer_dead = _sync_timer is None or not _sync_timer.is_alive()
+
+    if timer_dead and already_overdue:
+        logger.warning("Scheduler timer died (Cloud Run scale-to-zero?). Restarting in 5s.")
+        _next_sync_time = datetime.fromtimestamp(now.timestamp() + 5, tz=timezone.utc)
+        _sync_timer = threading.Timer(5, _run_background_sync)
+        _sync_timer.daemon = True
+        _sync_timer.start()
 
 
 @app.on_event("startup")
@@ -684,6 +716,13 @@ async def start_background_sync():
         f"Background auto-sync scheduler started "
         f"(every {SYNC_INTERVAL_HOURS}h, first run in 30s)"
     )
+
+
+@app.middleware("http")
+async def scheduler_watchdog(request: Request, call_next):
+    """Watchdog middleware: restarts the sync scheduler if Cloud Run killed it."""
+    _ensure_scheduler_alive()
+    return await call_next(request)
 
 
 @app.on_event("shutdown")

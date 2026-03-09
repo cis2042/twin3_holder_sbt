@@ -680,8 +680,14 @@ document.addEventListener('DOMContentLoaded', () => {
             'Congo - Brazzaville': 'Congo', 'Eswatini': 'eSwatini',
             'Timor-Leste': 'Timor-Leste', 'Papua New Guinea': 'Papua New Guinea',
         };
+        // Pre-compute total and per-country percentage from GA visitor share
+        const gaTotal = countries.reduce((s, c) => s + (c.activeUsers || 0), 0) || 1;
+        const countriesWithPct = countries.map(c => ({
+            ...c,
+            pct: (c.activeUsers / gaTotal * 100),
+        }));
         const countryLookup = {};
-        countries.forEach(c => {
+        countriesWithPct.forEach(c => {
             const name = nameMap[c.country] || c.country;
             countryLookup[name] = c;
         });
@@ -733,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .on('mousemove', (ev, d) => {
                     const match = countryLookup[d.properties.name];
                     if (match) {
-                        showTip(ev, `<strong>${match.country}</strong><br>Users: ${fmt(match.activeUsers)}<br>Sessions: ${fmt(match.sessions)}`);
+                        showTip(ev, `<strong>${match.country}</strong><br>Share: <strong>${match.pct.toFixed(1)}%</strong> of visitors<br><span style="font-size:0.75em;opacity:0.7">Based on GA traffic distribution</span>`);
                     }
                 })
                 .on('mouseleave', hideTip);
@@ -789,21 +795,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         legendSvg.append('rect').attr('x', 30).attr('y', 2).attr('width', legendW).attr('height', 10).attr('rx', 4)
             .attr('fill', 'url(#mapLegendGrad)');
-        legendSvg.append('text').attr('x', 30).attr('y', 24).text('1')
+        legendSvg.append('text').attr('x', 30).attr('y', 24).text('Low share')
             .style('font-size', '0.6rem').style('fill', MUTED);
         legendSvg.append('text').attr('x', 30 + legendW).attr('y', 24).attr('text-anchor', 'end')
-            .text(fmt(maxUsers) + ' users').style('font-size', '0.6rem').style('fill', MUTED);
+            .text('High share').style('font-size', '0.6rem').style('fill', MUTED);
 
-        // Top 10 country list
-        const top10 = countries.slice(0, 10);
+        // Top 20 country list (% share only — no absolute counts to avoid implying precision)
+        const top10 = countriesWithPct.slice(0, 20);
         const listDiv = legendArea.append('div')
             .style('display', 'flex').style('gap', '0.5rem 1.2rem')
             .style('flex-wrap', 'wrap').style('justify-content', 'flex-start');
 
         top10.forEach((c, i) => {
             const flag = getFlag(c.country);
-            const pct = countries.reduce((s, x) => s + x.activeUsers, 0);
-            const share = (c.activeUsers / pct * 100).toFixed(1);
             const item = listDiv.append('div')
                 .style('display', 'flex').style('align-items', 'center').style('gap', '0.3rem')
                 .style('font-size', '0.78rem').style('color', '#4a4a4a')
@@ -816,8 +820,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             item.html(`<span style="font-size:1.1rem">${flag}</span> ` +
                 `<strong>${c.country}</strong> ` +
-                `<span style="color:var(--accent)">${fmt(c.activeUsers)}</span> ` +
-                `<span style="color:var(--text-muted);font-size:0.65rem">${share}%</span>`);
+                `<span style="color:var(--accent);font-weight:600">${c.pct.toFixed(1)}%</span>`);
 
             // Click to highlight country on map
             item.on('click', () => {
